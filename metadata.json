@@ -1,0 +1,7 @@
+{
+  "name": "Hierarchical Robot Architecture Workbench",
+  "description": "Digital twin simulator, overhead ArUco vision tracker, ESP32 TB6612 actuation controller, and firmware workbench synchronized with the Swarm_Major multi-robot cooperative architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
