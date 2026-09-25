@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SwarmState, RobotTwin, TaskOrder, LogPacket, WorkspaceCalibration, TelemetryMode, CommandAck, NetworkNodeState, RackState } from './types';
+import { 
+  SwarmState, 
+  RobotTwin, 
+  TaskOrder, 
+  LogPacket, 
+  WorkspaceCalibration, 
+  TelemetryMode, 
+  CommandAck, 
+  NetworkNodeState, 
+  RackState,
+  PerceptionTelemetry,
+  TaskAllocationTelemetry,
+  ClawStateMachineTelemetry,
+  SafetyTelemetry
+} from './types';
 import { Header } from './components/Header';
 import { WarehouseDigitalTwin } from './components/WarehouseDigitalTwin';
 import { PerceptionView } from './components/PerceptionView';
@@ -10,9 +24,101 @@ import { NetworkTopologyView } from './components/NetworkTopologyView';
 import { ProtocolTerminal } from './components/ProtocolTerminal';
 import { CodeViewer } from './components/CodeViewer';
 import { ArucoMarkerSheetModal } from './components/ArucoMarkerSheetModal';
-import { INITIAL_LANDMARKS_50, INITIAL_BOUNDARY_CORNERS, INITIAL_RACKS_STATE } from './data/arucoMarkers';
+import { TaskAllocationPanel } from './components/TaskAllocationPanel';
+import { SensorFusionPanel } from './components/SensorFusionPanel';
+import { ClawStateMachinePanel } from './components/ClawStateMachinePanel';
+import { SafetyMonitor } from './components/SafetyMonitor';
+import { INITIAL_LANDMARKS_50, INITIAL_BOUNDARY_CORNERS, INITIAL_RACKS_STATE, INITIAL_DELIVERY_ZONE } from './data/arucoMarkers';
 import { WebSocketTelemetryClient } from './services/telemetry/WebSocketTelemetryClient';
 import { MockTelemetryClient } from './services/telemetry/MockTelemetryClient';
+
+const CLAW_PHASES = [
+  'IDLE', 'APPROACHING', 'ALIGNED', 'CLAW_OPEN', 'ARM_EXTENDING',
+  'OBJECT_DETECTED', 'CLAW_CLOSING', 'GRIP_CONFIRMED', 'ARM_RETRACTING',
+  'OBJECT_SECURED', 'TRANSPORT', 'DELIVERY_ALIGNMENT', 'ARM_EXTENDING',
+  'CLAW_OPENING', 'OBJECT_RELEASED', 'TASK_COMPLETE'
+];
+
+const INITIAL_PERCEPTION_STATE: PerceptionTelemetry = {
+  webcamConnected: true,
+  dictionary: 'DICT_4X4_50',
+  homographyCalibrated: true,
+  detectedCorners: 4,
+  robot1Tracked: true,
+  robot2Tracked: true,
+  rfidReading: {
+    activeTag: 'TAG_RACK_01',
+    matchedRack: 'RACK_1 (Marker ID 2)',
+    status: 'VERIFIED',
+  },
+  lidarTof: {
+    frontDistanceMm: 320,
+    leftClearanceCm: 32.5,
+    rightClearanceCm: 38.0,
+    dockingClearance: 'CLEAR',
+  },
+  sensorFusion: {
+    cameraArucoLocked: true,
+    rfidIdentityMatched: true,
+    lidarClearanceValid: true,
+    approachAuthorized: true,
+    status: 'FUSED_AND_AUTHORIZED',
+  },
+};
+
+const INITIAL_TASK_ALLOCATION_STATE: TaskAllocationTelemetry = {
+  activeTargetRack: 'RACK_1',
+  taskDescription: 'Fetch Payload from RACK_1 to DELIVERY_ZONE',
+  evaluatedCandidates: [
+    {
+      robotId: 'robot_0',
+      name: 'Robot 1 (Marker ID 0)',
+      distanceCm: 45,
+      pathCost: 42.5,
+      availability: 'READY',
+      battery: 98.0,
+      collisionRisk: 'LOW',
+      feasibility: 'VALID',
+    },
+    {
+      robotId: 'robot_1',
+      name: 'Robot 2 (Marker ID 1)',
+      distanceCm: 82,
+      pathCost: 78.2,
+      availability: 'BUSY',
+      battery: 92.0,
+      collisionRisk: 'LOW',
+      feasibility: 'VALID',
+    },
+  ],
+  selectedRobotId: 'robot_0',
+  selectionReason: 'Lowest total path cost (42.5 vs 78.2) + proximity to target rack + high battery (98%)',
+  allocatedAt: Date.now() - 5000,
+};
+
+const INITIAL_CLAW_STATE: ClawStateMachineTelemetry = {
+  phases: CLAW_PHASES,
+  currentPhase: 'IDLE',
+  currentPhaseIndex: 0,
+  targetRackId: 'RACK_1',
+  armAngleDeg: 0,
+  gripperState: 'OPEN',
+  gripperDeg: 180,
+  objectDetected: false,
+  gripConfirmed: false,
+};
+
+const INITIAL_SAFETY_STATE: SafetyTelemetry = {
+  boundaryStatus: 'SAFE',
+  boundaryBufferMarginCm: 8.0,
+  interRobotDistanceCm: 80,
+  collisionBubbleCm: 28.0,
+  collisionStatus: 'CLEAR',
+  lidarSafetyBrake: 'CLEAR',
+  rfidMatchStatus: 'VERIFIED',
+  communicationWatchdog: 'OK',
+  systemHalt: false,
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('warehouse');
@@ -26,6 +132,12 @@ export default function App() {
   // Telemetry Client Refs
   const wsClientRef = useRef<WebSocketTelemetryClient | null>(null);
   const mockClientRef = useRef<MockTelemetryClient | null>(null);
+
+  // Subsystem States
+  const [perception, setPerception] = useState<PerceptionTelemetry>(INITIAL_PERCEPTION_STATE);
+  const [taskAllocator, setTaskAllocator] = useState<TaskAllocationTelemetry>(INITIAL_TASK_ALLOCATION_STATE);
+  const [clawStateMachine, setClawStateMachine] = useState<ClawStateMachineTelemetry>(INITIAL_CLAW_STATE);
+  const [safety, setSafety] = useState<SafetyTelemetry>(INITIAL_SAFETY_STATE);
 
   // Initial Workspace Calibration State for DICT_4X4_50
   const [workspace, setWorkspace] = useState<WorkspaceCalibration>({
@@ -65,7 +177,7 @@ export default function App() {
       assignedTaskId: 'MISSION_101',
       tofDistanceMm: 350,
       ultrasonicCm: 80,
-      lastRfidTag: 'RACK_1_TAG_42',
+      lastRfidTag: 'TAG_RACK_01',
       isYielding: false,
       safetyInterlock: false,
       offlineMode: false,
@@ -105,7 +217,7 @@ export default function App() {
       assignedTaskId: 'MISSION_102',
       tofDistanceMm: 480,
       ultrasonicCm: 110,
-      lastRfidTag: 'RACK_2_TAG_88',
+      lastRfidTag: 'TAG_RACK_02',
       isYielding: false,
       safetyInterlock: false,
       offlineMode: false,
@@ -132,7 +244,7 @@ export default function App() {
     }
   ]);
 
-  // Tasks & Network Nodes (Assigned across different racks)
+  // Tasks & Network Nodes
   const [tasks, setTasks] = useState<TaskOrder[]>([
     {
       id: 'MISSION_101',
@@ -144,7 +256,7 @@ export default function App() {
       status: 'OPEN',
       assignedTo: 'robot_0',
       itemType: 'Electronic Sensor Kit',
-      rfidPayloadId: 'TAG_ES_901',
+      rfidPayloadId: 'TAG_RACK_01',
       createdAt: Date.now() - 30000
     },
     {
@@ -157,34 +269,41 @@ export default function App() {
       status: 'OPEN',
       assignedTo: 'robot_1',
       itemType: 'Actuator Servo Pack',
-      rfidPayloadId: 'TAG_ACT_440',
+      rfidPayloadId: 'TAG_RACK_02',
       createdAt: Date.now() - 15000
     }
   ]);
 
-  const [networkNodes] = useState<NetworkNodeState[]>([
-    { id: 'n1', name: 'Overhead Vision Server', layer: 'VISION', ip: '172.20.10.2', port: 5005, protocol: 'UDP', status: 'ONLINE', latencyMs: 12, lastHeartbeatMs: Date.now(), dataRateKbps: 450 },
-    { id: 'n2', name: 'Swarm Coordinator Node', layer: 'SWARM_COORDINATOR', ip: '172.20.10.2', port: 5005, protocol: 'UDP', status: 'ONLINE', latencyMs: 8, lastHeartbeatMs: Date.now(), dataRateKbps: 120 },
-    { id: 'n3', name: 'Robot 1 UNO Q Edge Brain', layer: 'UNO_Q_EDGE', ip: '172.20.10.3', port: 115200, protocol: 'UART', status: 'ONLINE', latencyMs: 5, lastHeartbeatMs: Date.now(), dataRateKbps: 115 },
-    { id: 'n4', name: 'Robot 1 ESP32 Controller', layer: 'ESP32_RTOS', ip: '172.20.10.3', port: 8888, protocol: 'UDP', status: 'ONLINE', latencyMs: 15, lastHeartbeatMs: Date.now(), dataRateKbps: 64 },
-    { id: 'n5', name: 'Robot 2 ESP32 Controller', layer: 'ESP32_RTOS', ip: '172.20.10.4', port: 8888, protocol: 'UDP', status: 'ONLINE', latencyMs: 18, lastHeartbeatMs: Date.now(), dataRateKbps: 64 }
+  const [networkNodes, setNetworkNodes] = useState<NetworkNodeState[]>([
+    { id: 'n1', name: 'Arduino UNO Q Gateway (Linux MPU)', layer: 'UNO_Q_EDGE', ip: '172.20.10.2', port: 8080, protocol: 'WEBSOCKET', status: 'ONLINE', latencyMs: 2, lastHeartbeatMs: Date.now(), dataRateKbps: 850 },
+    { id: 'n2', name: 'Overhead Vision Perception (USB Cam)', layer: 'VISION', ip: '172.20.10.2', port: 5005, protocol: 'UDP', status: 'ONLINE', latencyMs: 5, lastHeartbeatMs: Date.now(), dataRateKbps: 450 },
+    { id: 'n3', name: 'Robot 1 ESP32 Controller', layer: 'ESP32_RTOS', ip: '172.20.10.3', port: 8888, protocol: 'UDP', status: 'ONLINE', latencyMs: 14, lastHeartbeatMs: Date.now(), dataRateKbps: 64 },
+    { id: 'n4', name: 'Robot 2 ESP32 Controller', layer: 'ESP32_RTOS', ip: '172.20.10.4', port: 8888, protocol: 'UDP', status: 'ONLINE', latencyMs: 16, lastHeartbeatMs: Date.now(), dataRateKbps: 64 }
   ]);
 
   const [logs, setLogs] = useState<LogPacket[]>([
     {
       id: 'log-1',
       timestamp: new Date().toLocaleTimeString(),
-      source: 'WAREHOUSE_SERVER',
-      direction: 'BROADCAST',
-      content: '[STEP 5] ArUco Vision Perception online (DICT_4X4_50). Boundary Markers IDs 9-12 detected.',
+      source: 'UNO_Q_BRIDGE',
+      direction: 'WEBSOCKET',
+      content: '[GATEWAY ONLINE] Arduino UNO Q Linux Gateway active on port 8080. Ready for client connections.',
       level: 'SUCCESS'
     },
     {
       id: 'log-2',
       timestamp: new Date().toLocaleTimeString(),
+      source: 'WAREHOUSE_SERVER',
+      direction: 'BROADCAST',
+      content: '[STEP 5] ArUco Vision Perception online (DICT_4X4_50). Boundary Markers IDs 9-12 calibrated.',
+      level: 'SUCCESS'
+    },
+    {
+      id: 'log-3',
+      timestamp: new Date().toLocaleTimeString(),
       source: 'SWARM_COORDINATOR',
       direction: 'INTERNAL',
-      content: '[SWARM] Dynamic Homography H-Matrix computed. Workcell Frame: 120.0 x 120.0 cm',
+      content: '[SWARM] Dynamic Homography H-Matrix computed. Workcell Frame: 120.0 x 120.0 cm (8 cm Buffer)',
       level: 'INFO'
     }
   ]);
@@ -208,7 +327,18 @@ export default function App() {
       setLogs((prev) => [logPacket, ...prev.slice(0, 150)]);
     });
 
-    const unsubState = currentClient.onStateUpdate((incoming) => {
+    const unsubState = currentClient.onStateUpdate((incoming: Partial<SwarmState> & { bots?: any }) => {
+      if (incoming.perception) setPerception(incoming.perception);
+      if (incoming.taskAllocator) setTaskAllocator(incoming.taskAllocator);
+      if (incoming.clawStateMachine) setClawStateMachine(incoming.clawStateMachine);
+      if (incoming.safety) setSafety(incoming.safety);
+      if (incoming.workspace) setWorkspace(incoming.workspace);
+      if (incoming.racks) setRacks(incoming.racks);
+      if (incoming.robots) setRobots(incoming.robots);
+      if (incoming.networkNodes) setNetworkNodes(incoming.networkNodes);
+      if (incoming.tasks) setTasks(incoming.tasks);
+
+      // Handle raw bots map fallback
       if (incoming.bots) {
         setRobots((prev) =>
           prev.map((bot) => {
@@ -237,7 +367,7 @@ export default function App() {
     };
   }, [telemetryMode]);
 
-  // Command Handler
+  // Command Handler (Browser -> UNO Q Gateway -> ESP32)
   const handleSendCommand = async (commandName: string, targetRobotId: string, payload?: any): Promise<CommandAck> => {
     const activeClient = telemetryMode === 'LIVE' ? wsClientRef.current : mockClientRef.current;
     if (!activeClient) {
@@ -303,30 +433,64 @@ export default function App() {
       {/* Main Content Area */}
       <main className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
         {activeTab === 'warehouse' && (
-          <WarehouseDigitalTwin
-            robots={robots}
-            selectedRobotId={selectedRobotId}
-            onSelectRobot={setSelectedRobotId}
-            tasks={tasks}
-            workspace={workspace}
-            landmarks={INITIAL_LANDMARKS_50}
-            racks={racks}
-            onAddTask={(t) => setTasks((prev) => [...prev, t])}
-            onEmergencyHalt={handleEmergencyHalt}
-          />
+          <div className="space-y-6">
+            <WarehouseDigitalTwin
+              robots={robots}
+              selectedRobotId={selectedRobotId}
+              onSelectRobot={setSelectedRobotId}
+              tasks={tasks}
+              workspace={workspace}
+              landmarks={INITIAL_LANDMARKS_50}
+              racks={racks}
+              onAddTask={(t) => setTasks((prev) => [...prev, t])}
+              onEmergencyHalt={handleEmergencyHalt}
+            />
+
+            {/* Live Safety & Failsafe Monitor */}
+            <SafetyMonitor
+              safety={safety}
+              robots={robots}
+              onEmergencyHalt={handleEmergencyHalt}
+            />
+
+            {/* Autonomous Swarm Task Allocation Panel */}
+            <TaskAllocationPanel
+              taskAllocator={taskAllocator}
+              robots={robots}
+            />
+
+            {/* 16-Phase Manipulator State Machine Panel */}
+            <ClawStateMachinePanel
+              clawTelemetry={clawStateMachine}
+            />
+          </div>
         )}
 
         {activeTab === 'perception' && (
-          <PerceptionView
-            calibration={workspace}
-            robots={robots}
-            landmarks={INITIAL_LANDMARKS_50}
-            onRecalibrate={handleRecalibrate}
-            onOpenMarkerModal={() => setIsMarkerModalOpen(true)}
-          />
+          <div className="space-y-6">
+            <PerceptionView
+              calibration={workspace}
+              robots={robots}
+              landmarks={INITIAL_LANDMARKS_50}
+              onRecalibrate={handleRecalibrate}
+              onOpenMarkerModal={() => setIsMarkerModalOpen(true)}
+            />
+
+            {/* Multi-Sensor Fusion Pipeline (ArUco + RFID + LiDAR) */}
+            <SensorFusionPanel perception={perception} />
+          </div>
         )}
 
-        {activeTab === 'architecture' && <ArchitectureDiagram />}
+        {activeTab === 'architecture' && (
+          <div className="space-y-6">
+            <ArchitectureDiagram />
+            <NetworkTopologyView
+              nodes={networkNodes}
+              backendConnected={backendConnected}
+              packetAgeMs={packetAgeMs}
+            />
+          </div>
+        )}
 
         {activeTab === 'edge' && (
           <EdgeAgentView
@@ -337,15 +501,18 @@ export default function App() {
         )}
 
         {activeTab === 'control' && (
-          <HardwareController
-            robots={robots}
-            selectedRobotId={selectedRobotId}
-            onSelectRobot={setSelectedRobotId}
-            onSendCommand={handleSendCommand}
-            onEmergencyHalt={handleEmergencyHalt}
-            activeCommands={activeCommands}
-            onAddTask={(t) => setTasks((prev) => [...prev, t])}
-          />
+          <div className="space-y-6">
+            <HardwareController
+              robots={robots}
+              selectedRobotId={selectedRobotId}
+              onSelectRobot={setSelectedRobotId}
+              onSendCommand={handleSendCommand}
+              onEmergencyHalt={handleEmergencyHalt}
+              activeCommands={activeCommands}
+              onAddTask={(t) => setTasks((prev) => [...prev, t])}
+            />
+            <ClawStateMachinePanel clawTelemetry={clawStateMachine} />
+          </div>
         )}
 
         {activeTab === 'terminal' && (

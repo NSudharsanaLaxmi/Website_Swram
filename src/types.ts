@@ -1,9 +1,9 @@
 /**
  * Canonical Types for AI-Driven Cooperative Autonomous Mobile Manipulator Swarm Architecture
- * Aligned with https://github.com/NSudharsanaLaxmi/Swarm_Major.git
+ * Aligned with Arduino UNO Q Gateway & Swarm_Major Physical Architecture
  */
 
-export type TelemetryMode = 'LIVE' | 'DEMO';
+export type TelemetryMode = 'LIVE' | 'OFFLINE' | 'SIMULATION';
 
 export type CalibrationStatus = 'CALIBRATED' | 'CALIBRATION_DEGRADED' | 'UNCALIBRATED';
 
@@ -24,6 +24,12 @@ export interface SwarmPose {
   x: number; // Arena X in cm (0 to 120 cm)
   y: number; // Arena Y in cm (0 to 120 cm)
   ang: number; // Angle in degrees (-180 to +180)
+}
+
+export interface Pose {
+  x: number;
+  y: number;
+  ang: number;
 }
 
 export interface BatteryDataPoint {
@@ -124,12 +130,6 @@ export interface WorkspaceCalibration {
   lastCalibratedTimestamp: number;
 }
 
-export interface Pose {
-  x: number;
-  y: number;
-  ang: number;
-}
-
 export interface RackState {
   id: string; // 'rack_1', 'rack_2', 'rack_3'
   markerId: number; // 2, 3, 4
@@ -156,6 +156,7 @@ export interface ZoneState {
   approachPose: Pose;
   dropPose: Pose;
   exitPose: Pose;
+  safeClearanceCm: number;
 }
 
 export interface LandmarkState {
@@ -166,6 +167,77 @@ export interface LandmarkState {
   yCm: number;
   detected: boolean;
   rfidTag?: string;
+}
+
+export interface TaskCandidateEvaluation {
+  robotId: string;
+  name: string;
+  distanceCm: number;
+  pathCost: number;
+  availability: 'READY' | 'BUSY' | 'OFFLINE';
+  battery: number;
+  collisionRisk: 'LOW' | 'MODERATE' | 'HIGH';
+  feasibility: 'VALID' | 'BLOCKED';
+}
+
+export interface TaskAllocationTelemetry {
+  activeTargetRack: string;
+  taskDescription: string;
+  evaluatedCandidates: TaskCandidateEvaluation[];
+  selectedRobotId: string;
+  selectionReason: string;
+  allocatedAt: number;
+}
+
+export interface PerceptionTelemetry {
+  webcamConnected: boolean;
+  dictionary: string;
+  homographyCalibrated: boolean;
+  detectedCorners: number;
+  robot1Tracked: boolean;
+  robot2Tracked: boolean;
+  rfidReading: {
+    activeTag: string;
+    matchedRack: string;
+    status: 'VERIFIED' | 'MISMATCH' | 'SEARCHING';
+  };
+  lidarTof: {
+    frontDistanceMm: number;
+    leftClearanceCm: number;
+    rightClearanceCm: number;
+    dockingClearance: 'CLEAR' | 'APPROACH_READY' | 'OBSTACLE_BRAKE';
+  };
+  sensorFusion: {
+    cameraArucoLocked: boolean;
+    rfidIdentityMatched: boolean;
+    lidarClearanceValid: boolean;
+    approachAuthorized: boolean;
+    status: string;
+  };
+}
+
+export interface ClawStateMachineTelemetry {
+  phases: string[];
+  currentPhase: string;
+  currentPhaseIndex: number;
+  targetRackId: string;
+  armAngleDeg: number;
+  gripperState: 'OPEN' | 'CLOSED' | 'MOVING';
+  gripperDeg: number;
+  objectDetected: boolean;
+  gripConfirmed: boolean;
+}
+
+export interface SafetyTelemetry {
+  boundaryStatus: 'SAFE' | 'WARNING_BUFFER' | 'CRITICAL_BREACH';
+  boundaryBufferMarginCm: number;
+  interRobotDistanceCm: number;
+  collisionBubbleCm: number;
+  collisionStatus: 'CLEAR' | 'WARNING_YIELD' | 'CRITICAL_PROXIMITY';
+  lidarSafetyBrake: 'CLEAR' | 'ACTIVE_BRAKE';
+  rfidMatchStatus: 'VERIFIED' | 'UNVERIFIED';
+  communicationWatchdog: 'OK' | 'TIMEOUT';
+  systemHalt: boolean;
 }
 
 export interface TaskOrder {
@@ -220,6 +292,8 @@ export interface SwarmState {
     lastPacketAgeMs: number;
     emergencyHalt: boolean;
     uptimeSeconds: number;
+    cpu: number;
+    memory: number;
   };
 
   workspace: WorkspaceCalibration;
@@ -228,9 +302,17 @@ export interface SwarmState {
 
   racks: RackState[];
 
-  deliveryZone?: ZoneState;
+  deliveryZone: ZoneState;
 
   landmarks: LandmarkState[];
+
+  perception: PerceptionTelemetry;
+
+  taskAllocator: TaskAllocationTelemetry;
+
+  clawStateMachine: ClawStateMachineTelemetry;
+
+  safety: SafetyTelemetry;
 
   networkNodes: NetworkNodeState[];
 
