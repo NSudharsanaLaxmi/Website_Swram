@@ -1,7 +1,24 @@
 /**
- * Types for AI-Driven Cooperative Autonomous Mobile Manipulator Swarm Architecture
+ * Canonical Types for AI-Driven Cooperative Autonomous Mobile Manipulator Swarm Architecture
  * Aligned with https://github.com/NSudharsanaLaxmi/Swarm_Major.git
  */
+
+export type TelemetryMode = 'LIVE' | 'DEMO';
+
+export type CalibrationStatus = 'CALIBRATED' | 'CALIBRATION_DEGRADED' | 'UNCALIBRATED';
+
+export type CommandState = 'IDLE' | 'SENT' | 'ACKNOWLEDGED' | 'EXECUTING' | 'COMPLETED' | 'FAILED' | 'TIMEOUT';
+
+export interface CommandAck {
+  commandId: string;
+  commandName: string;
+  targetRobotId: string;
+  state: CommandState;
+  timestamp: number;
+  ackTimestamp?: number;
+  completedTimestamp?: number;
+  message?: string;
+}
 
 export interface SwarmPose {
   x: number; // Arena X in cm (0 to 120 cm)
@@ -10,20 +27,20 @@ export interface SwarmPose {
 }
 
 export interface BatteryDataPoint {
-  time: string; // e.g., "15:42:10"
+  time: string;
   timestamp: number;
   battery: number; // percentage 0-100%
-  voltage: number; // Volts e.g., 12.4
-  dischargeRate: number; // % per minute or rate of drop
-  currentDraw: number; // Amperes estimate (e.g. 1.2A to 4.5A)
-  status: string; // "IDLE", "NAV_TO_PICK", "PICK_PAYLOAD", etc.
+  voltage: number; // Volts e.g., 12.4V (3S LiPo)
+  dischargeRate: number; // % per minute
+  currentDraw: number; // Amperes (0.5A to 4.5A)
+  status: string;
 }
 
 export interface RobotTwin {
   id: string; // 'robot_0' or 'robot_1'
   botNum: number; // 0, 1
-  name: string; // e.g. "Robot 1 (Marker ID 0)", "Robot 2 (Marker ID 1)"
-  ip: string; // e.g. "192.168.1.50"
+  name: string; // "Robot 1 (Marker ID 0)", "Robot 2 (Marker ID 1)"
+  ip: string; // e.g. "172.20.10.3"
   udpPort: number; // 8888
   battery: number; // 0 - 100%
   voltage: number; // e.g. 12.4V (3S LiPo)
@@ -48,7 +65,11 @@ export interface RobotTwin {
   offlineMode: boolean;
   offlineQueueCount: number;
   lastTelemetryTime: number;
-  batteryHistory?: BatteryDataPoint[];
+  packetAgeMs: number;
+  distToBoundaryCm: number;
+  outOfBounds: boolean;
+  boundaryAlert: 'SAFE' | 'WARNING' | 'BRAKING_CRITICAL';
+  batteryHistory: BatteryDataPoint[];
   driveVelocities: {
     linearX: number; // m/s or -1.0 to 1.0
     angularZ: number; // rad/s or -1.0 to 1.0
@@ -57,6 +78,7 @@ export interface RobotTwin {
     pwmaLeft: number; // GPIO 4 (PWM Left)
     pwmbRight: number; // GPIO 5 (PWM Right)
     dirs: number[]; // [25, 26, 27, 14, 12, 13, 32, 33]
+    stbyStatus: 'HARDWIRED_HIGH';
   };
   armServos: {
     base: number; // PCA9685 CH0 (150-600)
@@ -65,48 +87,51 @@ export interface RobotTwin {
     wrist: number; // PCA9685 CH3
     gripper: number; // PCA9685 CH4 (85 closed - 180 open)
   };
-  currentDetection?: VisionDetection | null;
-  // Dynamic ArUco Boundary Condition & Safety Status
-  distToBoundaryCm?: number;
-  boundaryAlert?: 'SAFE' | 'WARNING' | 'BRAKING_CRITICAL';
-  boundaryRepulse?: { x: number; y: number };
+  unoQStatus: {
+    mpuOnline: boolean;
+    zephyrMcuOnline: boolean;
+    uartLinkBaud: number; // 115200
+    uartConnected: boolean;
+    cpuLoad: number; // %
+    ramUsageMb: number;
+  };
+  esp32Status: {
+    rtosOnline: boolean;
+    wifiSignalDbm: number;
+    freeHeapBytes: number;
+    watchdogStatus: 'OK' | 'TRIGGERED';
+  };
+}
+
+export interface BoundaryCorner {
+  id: number; // 9, 10, 11, 12
+  name: string; // 'BOUNDARY_TL', 'BOUNDARY_TR', 'BOUNDARY_BR', 'BOUNDARY_BL'
+  px: [number, number]; // [u, v] in camera pixel coordinates
+  cm: [number, number]; // [x, y] in workspace centimeters
+  detected: boolean;
 }
 
 export interface WorkspaceCalibration {
   isCalibrated: boolean;
+  status: CalibrationStatus;
   dictionary: string; // 'DICT_4X4_50'
-  boundaryCorners: {
-    tl: [number, number]; // ID 9 (x, y in cm)
-    tr: [number, number]; // ID 10
-    br: [number, number]; // ID 11
-    bl: [number, number]; // ID 12
-  };
-  rawCornersPx: {
-    tl: [number, number]; // in camera pixel coordinates [u, v]
-    tr: [number, number];
-    br: [number, number];
-    bl: [number, number];
-  };
   widthCm: number;
   heightCm: number;
-  scalePxPerCm: number;
-  skewAngleDeg: number;
-  perspectiveDistortion: number; // simulated tilt factor 0..1
-  boundarySafetyMarginCm: number; // hard safety buffer (e.g. 10cm)
+  safetyBufferMarginCm: number; // 8.0 cm
+  detectedCornerCount: number; // 0 to 4
+  boundaryCorners: BoundaryCorner[];
+  homographyMatrix: number[][]; // 3x3 perspective transformation matrix
   lastCalibratedTimestamp: number;
-  homographyMatrix: number[][]; // 3x3 perspective warp
 }
 
-export interface ArucoLiveDetection {
+export interface LandmarkState {
   id: number;
-  name: string;
-  role: 'BOUNDARY' | 'ROBOT' | 'RACK' | 'START_ZONE' | 'DELIVERY';
-  rawPx: [number, number];
-  calibratedCm: [number, number];
-  angleDeg: number;
-  confidence: number;
-  valid: boolean;
-  statusText: string;
+  name: string; // 'RACK_1', 'RACK_2', 'RACK_3', 'RACK_4', 'ROBOT_1_START', 'ROBOT_2_START', 'DELIVERY_ZONE'
+  type: 'RACK' | 'START_ZONE' | 'DELIVERY';
+  xCm: number;
+  yCm: number;
+  detected: boolean;
+  rfidTag?: string;
 }
 
 export interface TaskOrder {
@@ -123,32 +148,59 @@ export interface TaskOrder {
   createdAt: number;
 }
 
-export interface CostBreakdown {
-  robotId: string;
-  dist: number;
-  energyCost: number;
-  healthCost: number;
-  totalCost: number;
-  isAvailable: boolean;
-}
-
-export interface VisionDetection {
-  label: 'ARUCO_MARKER_0' | 'ARUCO_MARKER_1' | 'RACK_STATION' | 'OBSTACLE';
-  confidence: number;
-  xCm: number;
-  yCm: number;
-  angleDeg: number;
-  markerId?: number;
-  timestamp: string;
+export interface NetworkNodeState {
+  id: string;
+  name: string;
+  layer: 'VISION' | 'SWARM_COORDINATOR' | 'UNO_Q_EDGE' | 'ESP32_RTOS' | 'ACTUATOR_SENSOR';
+  ip?: string;
+  port?: number;
+  protocol: 'UDP' | 'UART' | 'I2C' | 'SPI' | 'WEBSOCKET';
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
+  latencyMs: number;
+  lastHeartbeatMs: number;
+  dataRateKbps: number;
 }
 
 export interface LogPacket {
   id: string;
   timestamp: string;
-  source: 'ESP32_AGENT' | 'OVERHEAD_VISION' | 'SWARM_COORDINATOR' | 'UNO_Q_BRIDGE' | 'TELEOP_UDP' | 'WAREHOUSE_SERVER';
-  direction: 'TX' | 'RX' | 'UDP_5005' | 'UDP_8888' | 'UART_115200' | 'BROADCAST' | 'INTERNAL';
+  source: 'ESP32_AGENT' | 'OVERHEAD_VISION' | 'SWARM_COORDINATOR' | 'UNO_Q_BRIDGE' | 'TELEOP_UDP' | 'WAREHOUSE_SERVER' | 'TELEMETRY_BRIDGE';
+  direction: 'TX' | 'RX' | 'UDP_5005' | 'UDP_8888' | 'UART_115200' | 'BROADCAST' | 'INTERNAL' | 'WEBSOCKET';
   content: string;
   level: 'INFO' | 'WARN' | 'ALERT' | 'SUCCESS';
+}
+
+/**
+ * Canonical Swarm State Model for the entire Web Interface
+ */
+export interface SwarmState {
+  timestamp: number;
+  mode: TelemetryMode;
+
+  system: {
+    connected: boolean;
+    calibrationStatus: CalibrationStatus;
+    communicationStatus: string;
+    backendBridgeConnected: boolean;
+    bridgeUrl: string;
+    lastPacketAgeMs: number;
+    emergencyHalt: boolean;
+    uptimeSeconds: number;
+  };
+
+  workspace: WorkspaceCalibration;
+
+  robots: RobotTwin[];
+
+  landmarks: LandmarkState[];
+
+  networkNodes: NetworkNodeState[];
+
+  tasks: TaskOrder[];
+
+  activeCommands: CommandAck[];
+
+  logs: LogPacket[];
 }
 
 export interface PinDefinition {

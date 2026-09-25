@@ -1,269 +1,255 @@
 import React, { useState } from 'react';
-import { 
-  Network, 
-  Server, 
-  Cpu, 
-  Bot, 
-  Camera,
-  Radio, 
-  Zap, 
-  ShieldCheck, 
-  Layers,
-  ChevronRight,
-  Sliders,
-  Compass,
-  ArrowRight,
-  CheckCircle,
-  Eye,
-  Crosshair
-} from 'lucide-react';
+import { Eye, Shield, Cpu, Activity, Zap, CheckCircle2, FileCode, Radio, ArrowDown } from 'lucide-react';
+
+interface ArchNode {
+  id: string;
+  name: string;
+  layerTitle: string;
+  role: string;
+  hardware: string;
+  software: string;
+  inputs: string[];
+  outputs: string[];
+  protocol: string;
+  status: 'ONLINE' | 'ACTIVE' | 'DETERMINISTIC_OK';
+  files: string[];
+}
+
+const ARCHITECTURE_NODES: ArchNode[] = [
+  {
+    id: 'vision',
+    name: '1. Overhead Vision Perception Layer',
+    layerTitle: 'Layer 1 — Global Perception & Boundary Reference',
+    role: 'Captures continuous top-down video stream and detects ArUco markers using DICT_4X4_50.',
+    hardware: 'Overhead IP Camera / Smartphone / POCO (Full HD 1080p @ 30fps)',
+    software: 'OpenCV 4.13 + Python cv2.aruco Detector (DICT_4X4_50)',
+    inputs: ['Raw Video Frames', 'ArUco Marker IDs 0 to 12'],
+    outputs: ['Raw Pixel Centroids (u, v)', 'Corner Point Boundaries'],
+    protocol: 'RTSP / HTTP Video Stream',
+    status: 'ONLINE',
+    files: ['server/warehouse_central_server.py', 'server/step5_overhead_vision_tracker.py'],
+  },
+  {
+    id: 'homography',
+    name: '2. Dynamic Boundary Homography Engine',
+    layerTitle: 'Layer 1.5 — Metric Workspace Transformation',
+    role: 'Extracts boundary markers IDs 9 (TL), 10 (TR), 11 (BR), 12 (BL) and computes the 3x3 Homography Matrix H.',
+    hardware: 'Host Workstation CPU / GPU',
+    software: 'cv2.getPerspectiveTransform() + cv2.perspectiveTransform()',
+    inputs: ['Boundary Marker Centroids (IDs 9-12)', 'Known Arena Dimensions (120x120 cm)'],
+    outputs: ['Perspective Matrix H', 'Metric Workcell Coordinates (X_cm, Y_cm)', 'Out-of-Bounds Flag'],
+    protocol: 'In-Memory Matrix Transformation',
+    status: 'ONLINE',
+    files: ['server/warehouse_central_server.py'],
+  },
+  {
+    id: 'swarm',
+    name: '3. Swarm Coordination & Task Planning Layer',
+    layerTitle: 'Layer 2 — Decentralized Swarm Coordination',
+    role: 'Maintains global swarm state, evaluates peer proximity clearance (28 cm), enforces right-of-way yielding based on Robot ID, and dispatches warehouse missions.',
+    hardware: 'Linux Central Coordinator Server (or Containerized ROS 2 Humble)',
+    software: 'Python Swarm Coordinator / ROS 2 geometry_msgs/Twist Planner',
+    inputs: ['Global Robot Metric Poses (X, Y, theta)', 'Rack Locations (IDs 2-5)', 'Delivery Zone (ID 8)'],
+    outputs: ['JSON Telemetry Broadcast (Port 5005)', 'Target Waypoint Vectors'],
+    protocol: 'UDP Multicast Broadcast (Port 5005)',
+    status: 'ACTIVE',
+    files: ['server/standalone_swarm_coordinator.py', 'server/step6_closed_loop_coordinator.py'],
+  },
+  {
+    id: 'uno_q',
+    name: '4. Arduino UNO Q High-Level Edge Agent',
+    layerTitle: 'Layer 3 — Edge Intelligence & Robot Brain',
+    role: 'High-level onboard edge computer handling robot-level decision making, swarm mission participation, task queuing, and high-speed UART link to ESP32.',
+    hardware: 'Arduino UNO Q (Qualcomm QRB2210 Quad-Core Arm Cortex-A53 @ 2.0 GHz MPU + STM32U585 MCU)',
+    software: 'Debian Linux + Arduino App Lab + Python Edge Agent',
+    inputs: ['UDP Vision Stream (Port 5005)', 'Assigned Mission Orders'],
+    outputs: ['High-Level Motion Intent', 'UART Serial Frames (115200 Baud)'],
+    protocol: 'Wi-Fi 5 UDP + Hardware UART (115200 Baud)',
+    status: 'ONLINE',
+    files: ['server/uno_q_swarm_agent.py'],
+  },
+  {
+    id: 'esp32',
+    name: '5. ESP32 Real-Time Deterministic Controller',
+    layerTitle: 'Layer 4 — Deterministic Safety & Motor Controller',
+    role: 'Real-time microcontroller executing skid-steer PWM motor control, ToF laser proximity safety braking (<120 mm), Watchdog failsafe timer (500 ms), and PCA9685 servo arm poses.',
+    hardware: 'ESP32 DevKit V1 (Xtensa Dual-Core 240 MHz)',
+    software: 'C++ Arduino Firmware / FreeRTOS (integrated_robot.ino)',
+    inputs: ['UDP Command Stream (Port 8888)', 'VL53L0X ToF Distance', 'RC522 RFID Scans'],
+    outputs: ['Native Hardware PWM (GPIO 4/5)', '8-Pin Motor Direction Signals', 'PCA9685 I2C Signals'],
+    protocol: 'Wi-Fi UDP Port 8888 + Hardware I2C / SPI',
+    status: 'DETERMINISTIC_OK',
+    files: [
+      'firmware/integrated_robot/Config.h',
+      'firmware/integrated_robot/MotorDriver.cpp',
+      'firmware/integrated_robot/ArmController.cpp',
+      'firmware/integrated_robot/SensorSuite.cpp',
+      'firmware/integrated_robot/integrated_robot.ino',
+    ],
+  },
+  {
+    id: 'actuators',
+    name: '6. Actuators, Motors & Sensor Hardware',
+    layerTitle: 'Layer 5 — Physical Actuation & Sensing Hardware',
+    role: 'Physical 4WD Mecanum/Wheeled drive chassis, 2x TB6612FNG drivers, 4-DOF articulated manipulator (MG90S servos), VL53L0X ToF laser, HC-SR04 ultrasonic, and SSD1306 OLED dashboard.',
+    hardware: '4x TT BO Motors + 2x TB6612FNG + PCA9685 + 5x MG90S Servos + VL53L0X + SSD1306 OLED + 3S 11.1V LiPo',
+    software: 'Direct Voltage / PWM Pulse Signals',
+    inputs: ['PWM Speeds', 'Direction Logic Levels', 'Servo Duty Cycles'],
+    outputs: ['Robot Kinetic Drive', 'Arm Articulation', 'Ground Distance Telemetry'],
+    protocol: 'Direct Analog/Digital Lines + I2C Bus (0x40, 0x29, 0x3C)',
+    status: 'ONLINE',
+    files: ['firmware/integrated_robot/Config.h'],
+  },
+];
 
 export const ArchitectureDiagram: React.FC = () => {
-  const [selectedLayer, setSelectedLayer] = useState<number>(5);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>('uno_q');
 
-  const layers = [
-    {
-      id: 6,
-      title: 'LAYER 6: Overhead IP Camera & Video Stream Acquisition',
-      file: 'step5_overhead_vision_tracker.py (--source 0 / RTSP)',
-      platform: 'Overhead Optical Rig • 1080p @ 30 FPS Stream',
-      icon: Camera,
-      color: 'border-indigo-500 bg-indigo-50/50 text-indigo-800',
-      badgeColor: 'bg-indigo-100 text-indigo-800',
-      summary: 'Captures continuous high-resolution overhead video of the 120cm × 120cm warehouse arena under varying lighting and camera tilt angles. Streams raw frames to the vision pipeline.',
-      protocols: ['RTSP / HTTP MJPEG / V4L2 USB Camera', 'OpenCV VideoCapture', '1080p Resolution at 30 FPS'],
-      specs: [
-        'Overhead mount with wide-angle FOV covering entire workspace and perimeter borders',
-        'Camera position or tilt shifts are automatically absorbed by dynamic ArUco calibration',
-        'Frame buffer stream passed directly to ArUco detection pipeline'
-      ]
-    },
-    {
-      id: 5,
-      title: 'LAYER 5: ArUco-Based Global Localization & Workspace Calibration Layer',
-      file: 'cv2.aruco.DICT_4X4_50 Homography Engine (step5_overhead_vision_tracker.py)',
-      platform: 'Overhead Vision Server • UDP Port 5005 Broadcast',
-      icon: Compass,
-      color: 'border-amber-500 bg-amber-50/50 text-amber-800',
-      badgeColor: 'bg-amber-100 text-amber-800',
-      summary: 'CRITICAL ARCHITECTURAL COMPONENT: Continuously detects the 4 boundary markers (IDs 9–12) to compute the 3×3 perspective homography matrix H, establishing workspace origin, scale (px/cm), and hard perimeter constraints. Localizes fixed racks (IDs 2–5), start zones (IDs 6–7), delivery zone (ID 8), and moving robots (IDs 0–1) in this unified coordinate frame.',
-      protocols: ['OpenCV cv2.aruco.DICT_4X4_50 (13 Markers)', 'cv2.getPerspectiveTransform(src, dst)', 'UDP Multicast Port 5005'],
-      specs: [
-        'Boundary Conditions: 4 outer corner markers (IDs 9, 10, 11, 12) define physical workspace polygon',
-        'Dynamic Recalibration: Recalibrates workspace whenever camera shifts or re-orientates',
-        'Unified Frame: Transforms all robot poses, racks, and goals into metric centimeters (120×120cm)',
-        'Hard Constraints: Generates occupancy and boundary polygon with 10cm inner safety buffer'
-      ]
-    },
-    {
-      id: 4,
-      title: 'LAYER 4: Swarm Intelligence, Path Planning & Collision Avoidance',
-      file: 'standalone_swarm_coordinator.py',
-      platform: 'Central Coordination Station / Python 3',
-      icon: Server,
-      color: 'border-emerald-500 bg-emerald-50/50 text-emerald-800',
-      badgeColor: 'bg-emerald-100 text-emerald-800',
-      summary: 'Consumes calibrated ArUco telemetry over UDP 5005, allocates warehouse pick/drop tasks, plans trajectories strictly inside the valid boundary polygon, and executes decentralized right-of-way yielding when peer robot is under 28cm.',
-      protocols: ['UDP Socket RX :5005 (ArUco Frame)', 'UDP Socket TX :8888 (ESP32 Velocity)', 'CSV Velocity: "linear_x,angular_z"'],
-      specs: [
-        'Boundary Enforcement: Trajectories clamped within calibrated polygon; triggers boundary brake if < 10cm',
-        'Swarm Yielding: Higher ID robot yields to lower ID robot if distance < 28.0 cm',
-        'Control Loop: 20 Hz closed-loop proportional heading guidance and in-place pivot steering',
-        'Tolerance Threshold: Waypoint arrival confirmed when Euclidean distance <= 8.0 cm'
-      ]
-    },
-    {
-      id: 3,
-      title: 'LAYER 3: Arduino UNO Q Linux Swarm Agent & UART Bridge',
-      file: 'uno_q_swarm_agent.py & uno_q_linux_setup.sh',
-      platform: 'Arduino UNO Q Onboard Linux MPU (/dev/ttyS0 @ 115200)',
-      icon: Cpu,
-      color: 'border-purple-500 bg-purple-50/50 text-purple-800',
-      badgeColor: 'bg-purple-100 text-purple-800',
-      summary: 'Runs onboard Linux daemon subscribing to UDP vision broadcast and bridging mission coordinates and waypoint states to the ESP32 via high-speed hardware UART.',
-      protocols: ['UDP Client :5005', 'Hardware UART /dev/ttyS0 @ 115200 Baud', 'UART Command: P:x,y,ang'],
-      specs: [
-        'Zero-drop message passing between Linux networking stack and ESP32 UART',
-        'Automatic WiFi reconnection supervisor and systemd daemon management',
-        'Onboard edge logging and hardware health diagnostics'
-      ]
-    },
-    {
-      id: 2,
-      title: 'LAYER 2: ESP32 Autonomous Swarm Agent Firmware',
-      file: 'step3_esp32_swarm_agent.ino & Config.h',
-      platform: 'ESP32 DevKit V1 (TB6612 Dual H-Bridges)',
-      icon: Radio,
-      color: 'border-sky-500 bg-sky-50/50 text-sky-800',
-      badgeColor: 'bg-sky-100 text-sky-800',
-      summary: 'Real-time locomotion firmware running WiFi UDP server on Port 8888. Parses linear and angular velocity commands, applies skid-steer kinematics to 4 DC motors with a 500ms safety watchdog and active obstacle braking.',
-      protocols: ['WiFi UDP Server Port 8888', 'TB6612FNG Dual H-Bridges (PWM D4, D5)', '500ms Command Watchdog'],
-      specs: [
-        'Skid-Steer Kinematics: left = linear_x - (angular_z * 0.5), right = linear_x + (angular_z * 0.5)',
-        'PWM Allocation: GPIO 4 (Left PWM), GPIO 5 (Right PWM)',
-        'Direction GPIOs: Front (25, 26, 27, 14), Rear (12, 13, 32, 33)',
-        'Failsafe: All motors cut to 0 PWM if UDP packet not received within 500ms'
-      ]
-    },
-    {
-      id: 1,
-      title: 'LAYER 1: Integrated Robot Master (Arm, ToF, OLED & RFID)',
-      file: 'integrated_robot.ino & Config.h',
-      platform: 'ESP32 Master Sensor/Actuation Core',
-      icon: Bot,
-      color: 'border-rose-500 bg-rose-50/50 text-rose-800',
-      badgeColor: 'bg-rose-100 text-rose-800',
-      summary: 'Complete multi-sensor integration firmware driving PCA9685 4-DoF arm, VL53L0X laser ToF distance sensor, SSD1306 OLED display, and RC522 RFID reader over I2C and SPI buses.',
-      protocols: ['I2C (SDA 21, SCL 22)', 'PCA9685 0x40 (Arm CH0-4)', 'VL53L0X 0x29 (Laser ToF)', 'SSD1306 0x3C (OLED)', 'MFRC522 SPI (SS 5, RST 17)'],
-      specs: [
-        '4-DoF Robotic Arm: Base (CH0), Shoulder (CH1), Elbow (CH2), Wrist (CH3), Gripper (CH4 85°-180°)',
-        'Laser ToF Auto-Brake: Halts robot motion when obstacle < 120 mm',
-        'State Machine: IDLE -> NAV_TO_PICK -> PICK_PAYLOAD -> NAV_TO_DROP -> DROP_PAYLOAD -> RETURN',
-        'OLED Display: 128x64 display rendering IP, state, battery, and ToF range'
-      ]
-    }
-  ];
-
-  const currentLayer = layers.find((l) => l.id === selectedLayer) || layers[1];
-
-  const pipeline = [
-    'ArUco Detection (0–12)',
-    'Boundary Calibration (9–12)',
-    'Workspace Coordinate Frame',
-    'Robot/Rack Localization',
-    'Occupancy & Boundary Map',
-    'Task Allocation',
-    'Path Planning',
-    'Collision Avoidance',
-    'Local Robot Control'
-  ];
+  const activeNode = ARCHITECTURE_NODES.find((n) => n.id === selectedNodeId) || ARCHITECTURE_NODES[3];
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-white rounded-xl p-5 border border-zinc-200 shadow-xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Network className="w-5 h-5 text-indigo-600" />
-          <h2 className="text-base font-bold text-zinc-900">
-            Swarm_Major Hierarchical System Architecture
-          </h2>
-          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-            ArUco Boundary &amp; Geometric Reference System
-          </span>
-        </div>
-        <p className="text-xs text-zinc-500 mt-1 max-w-4xl">
-          Structural breakdown illustrating the decoupling between global ArUco vision calibration, swarm coordination, and local real-time robot actuation. The 4 boundary markers (IDs 9–12) define the geometric reference conditions of the entire workspace.
-        </p>
-      </div>
-
-      {/* Perception to Control Pipeline Flowchart */}
-      <div className="bg-white rounded-xl p-5 border border-zinc-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-600" />
-            <h3 className="text-sm font-semibold text-zinc-900">
-              Perception-to-Control Flow Pipeline
-            </h3>
+      {/* Header Banner */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <Cpu className="w-6 h-6 text-cyan-400" />
+            <h2 className="text-xl font-bold text-white tracking-wide">
+              Swarm Hardware & Software Architecture Hierarchy
+            </h2>
           </div>
-          <span className="text-[10px] font-mono text-indigo-600 font-bold">
-            9-Stage Closed-Loop Process
-          </span>
+          <p className="text-slate-400 text-xs mt-1">
+            System hierarchy strictly aligned with <code className="text-cyan-300 font-mono font-bold">NSudharsanaLaxmi/Swarm_Major</code>. 
+            Click any node below to inspect hardware specs, communication protocols, data inputs/outputs, and source files.
+          </p>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto py-2">
-          {pipeline.map((stage, idx) => (
-            <React.Fragment key={idx}>
-              <div className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-center">
-                <div className="text-[9px] font-mono font-bold text-indigo-600">STAGE {idx + 1}</div>
-                <div className="text-[11px] font-bold text-zinc-800 whitespace-nowrap mt-0.5">{stage}</div>
-              </div>
-              {idx < pipeline.length - 1 && (
-                <ArrowRight className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
-              )}
-            </React.Fragment>
-          ))}
+        <div className="flex items-center gap-2 font-mono text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-lg">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>DECENTRALIZED EDGE ARCHITECTURE VALIDATED</span>
         </div>
       </div>
 
+      {/* Main Interactive Diagram Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Architecture Visual Stack */}
+        {/* Left Column: Interactive Stacked Architecture Nodes */}
         <div className="lg:col-span-7 space-y-3">
-          {layers.map((layer) => {
-            const isSelected = layer.id === selectedLayer;
-            const Icon = layer.icon;
+          {ARCHITECTURE_NODES.map((node, index) => {
+            const isSelected = selectedNodeId === node.id;
 
             return (
-              <div
-                key={layer.id}
-                onClick={() => setSelectedLayer(layer.id)}
-                className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer shadow-xs ${
-                  isSelected
-                    ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20'
-                    : 'border-zinc-200 bg-zinc-50/70 hover:bg-white hover:border-zinc-300'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                      layer.id === 6 ? 'bg-indigo-100 text-indigo-700' :
-                      layer.id === 5 ? 'bg-amber-100 text-amber-700' :
-                      layer.id === 4 ? 'bg-emerald-100 text-emerald-700' :
-                      layer.id === 3 ? 'bg-purple-100 text-purple-700' :
-                      layer.id === 2 ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'
-                    }`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs font-bold text-zinc-900">{layer.title}</h3>
+              <React.Fragment key={node.id}>
+                <div
+                  onClick={() => setSelectedNodeId(node.id)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer shadow-lg ${
+                    isSelected
+                      ? 'bg-cyan-950/60 border-cyan-500 ring-2 ring-cyan-500/30'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-850'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                          isSelected ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {index + 1}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <code className="text-[11px] font-mono font-bold text-indigo-700">{layer.file}</code>
-                        <span className="text-zinc-400 text-xs">•</span>
-                        <span className="text-[11px] text-zinc-500">{layer.platform}</span>
+                      <div>
+                        <span className="text-[11px] font-mono text-cyan-400 font-bold uppercase block">
+                          {node.layerTitle}
+                        </span>
+                        <h4 className="text-sm font-bold text-white">{node.name}</h4>
                       </div>
                     </div>
+
+                    <span className="text-[10px] font-mono font-bold px-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-300">
+                      {node.protocol}
+                    </span>
                   </div>
-                  <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-600 rotate-90' : 'text-zinc-400'}`} />
                 </div>
-              </div>
+
+                {index < ARCHITECTURE_NODES.length - 1 && (
+                  <div className="flex justify-center py-0.5">
+                    <ArrowDown className="w-4 h-4 text-cyan-400/60 animate-bounce" />
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
 
-        {/* Right: Selected Layer Deep Dive */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-xl p-5 border border-zinc-200 shadow-xs space-y-4 sticky top-24">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-              <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${currentLayer.badgeColor}`}>
-                {currentLayer.title.split(':')[0]}
-              </span>
-              <span className="text-xs font-mono text-zinc-400">Layer Inspector</span>
-            </div>
+        {/* Right Column: Node Details Inspector */}
+        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl sticky top-24 self-start space-y-5">
+          <div className="border-b border-slate-800 pb-4">
+            <span className="text-xs font-mono font-bold text-cyan-400 block uppercase">
+              {activeNode.layerTitle}
+            </span>
+            <h3 className="text-lg font-bold text-white mt-1">{activeNode.name}</h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">{activeNode.role}</p>
+          </div>
 
+          <div className="space-y-4 text-xs font-mono">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">{currentLayer.title}</h3>
-              <p className="text-xs text-zinc-600 mt-2 leading-relaxed">{currentLayer.summary}</p>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-zinc-900">Communication &amp; Standards:</h4>
-              <div className="flex flex-wrap gap-1.5">
-                {currentLayer.protocols.map((p, i) => (
-                  <span key={i} className="px-2 py-1 text-[11px] font-mono bg-zinc-100 text-zinc-700 rounded-md border border-zinc-200">
-                    {p}
-                  </span>
-                ))}
+              <span className="text-slate-400 font-semibold block mb-1">Hardware Specification:</span>
+              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-200">
+                {activeNode.hardware}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-zinc-900">Operational Specifications:</h4>
-              <ul className="text-xs text-zinc-600 space-y-1.5 list-disc pl-4">
-                {currentLayer.specs.map((s, i) => (
-                  <li key={i}>{s}</li>
+            <div>
+              <span className="text-slate-400 font-semibold block mb-1">Software & Firmware Stack:</span>
+              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-cyan-300">
+                {activeNode.software}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-400 font-semibold block mb-1">Communication Protocol:</span>
+              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-emerald-400 font-bold">
+                {activeNode.protocol}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-slate-400 font-semibold block mb-1">Data Inputs:</span>
+                <ul className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-300 space-y-1 text-[11px]">
+                  {activeNode.inputs.map((inp, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      {inp}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <span className="text-slate-400 font-semibold block mb-1">Data Outputs:</span>
+                <ul className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-300 space-y-1 text-[11px]">
+                  {activeNode.outputs.map((out, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      {out}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-400 font-semibold block mb-1 flex items-center gap-1.5">
+                <FileCode className="w-3.5 h-3.5 text-cyan-400" />
+                Source Files in Swarm_Major Repository:
+              </span>
+              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                {activeNode.files.map((file, idx) => (
+                  <div key={idx} className="text-[11px] text-cyan-300 font-mono font-semibold">
+                    • {file}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </div>
