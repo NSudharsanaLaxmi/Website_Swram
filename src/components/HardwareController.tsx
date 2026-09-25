@@ -223,15 +223,15 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
 
           {/* Quick Enqueue Mission Task */}
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-slate-300 font-mono uppercase">Enqueue Warehouse Task</h4>
-            <div className="grid grid-cols-2 gap-2">
+            <h4 className="text-xs font-bold text-slate-300 font-mono uppercase">Enqueue Warehouse Task (3 Racks)</h4>
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() =>
                   onAddTask({
                     id: `MISSION-${Date.now().toString().slice(-4)}`,
                     name: 'RACK_1 (ID 2) -> DELIVERY_ZONE (ID 8)',
-                    pickTarget: [25.0, 30.0],
-                    dropTarget: [95.0, 60.0],
+                    pickTarget: [35.0, 32.0],
+                    dropTarget: [60.0, 98.0],
                     rackMarkerId: 2,
                     dropMarkerId: 8,
                     status: 'OPEN',
@@ -240,9 +240,9 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
                     createdAt: Date.now(),
                   })
                 }
-                className="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-mono font-bold text-left transition-all"
+                className="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-mono font-bold text-left transition-all"
               >
-                + Enqueue Rack 1 Pick
+                + Rack 1 Pick
               </button>
 
               <button
@@ -250,8 +250,8 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
                   onAddTask({
                     id: `MISSION-${Date.now().toString().slice(-4)}`,
                     name: 'RACK_2 (ID 3) -> DELIVERY_ZONE (ID 8)',
-                    pickTarget: [25.0, 90.0],
-                    dropTarget: [95.0, 60.0],
+                    pickTarget: [85.0, 32.0],
+                    dropTarget: [60.0, 98.0],
                     rackMarkerId: 3,
                     dropMarkerId: 8,
                     status: 'OPEN',
@@ -260,9 +260,29 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
                     createdAt: Date.now(),
                   })
                 }
-                className="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-mono font-bold text-left transition-all"
+                className="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-mono font-bold text-left transition-all"
               >
-                + Enqueue Rack 2 Pick
+                + Rack 2 Pick
+              </button>
+
+              <button
+                onClick={() =>
+                  onAddTask({
+                    id: `MISSION-${Date.now().toString().slice(-4)}`,
+                    name: 'RACK_3 (ID 4) -> DELIVERY_ZONE (ID 8)',
+                    pickTarget: [60.0, 68.0],
+                    dropTarget: [60.0, 98.0],
+                    rackMarkerId: 4,
+                    dropMarkerId: 8,
+                    status: 'OPEN',
+                    itemType: 'Lithium Battery Module',
+                    rfidPayloadId: `TAG_BAT_${Math.floor(Math.random() * 900 + 100)}`,
+                    createdAt: Date.now(),
+                  })
+                }
+                className="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-mono font-bold text-left transition-all"
+              >
+                + Rack 3 Pick
               </button>
             </div>
           </div>

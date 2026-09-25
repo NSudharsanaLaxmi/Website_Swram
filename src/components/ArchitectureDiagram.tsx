@@ -49,7 +49,7 @@ const ARCHITECTURE_NODES: ArchNode[] = [
     role: 'Maintains global swarm state, evaluates peer proximity clearance (28 cm), enforces right-of-way yielding based on Robot ID, and dispatches warehouse missions.',
     hardware: 'Linux Central Coordinator Server (or Containerized ROS 2 Humble)',
     software: 'Python Swarm Coordinator / ROS 2 geometry_msgs/Twist Planner',
-    inputs: ['Global Robot Metric Poses (X, Y, theta)', 'Rack Locations (IDs 2-5)', 'Delivery Zone (ID 8)'],
+    inputs: ['Global Robot Metric Poses (X, Y, theta)', 'Shared 3-Rack Environment (IDs 2-4)', 'Delivery Zone (ID 8)'],
     outputs: ['JSON Telemetry Broadcast (Port 5005)', 'Target Waypoint Vectors'],
     protocol: 'UDP Multicast Broadcast (Port 5005)',
     status: 'ACTIVE',

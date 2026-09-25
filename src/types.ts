@@ -124,10 +124,44 @@ export interface WorkspaceCalibration {
   lastCalibratedTimestamp: number;
 }
 
+export interface Pose {
+  x: number;
+  y: number;
+  ang: number;
+}
+
+export interface RackState {
+  id: string; // 'rack_1', 'rack_2', 'rack_3'
+  markerId: number; // 2, 3, 4
+  name: string; // 'RACK_1', 'RACK_2', 'RACK_3'
+  position: { x: number; y: number };
+  orientation: number;
+  pickupFace: 'NORTH' | 'SOUTH' | 'EAST' | 'WEST';
+  approachPose: Pose;
+  pickupPose: Pose;
+  exitPose: Pose;
+  safeClearanceCm: number;
+  status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
+  assignedRobot?: string | null;
+  currentTaskId?: string | null;
+  rfidTag?: string;
+}
+
+export interface ZoneState {
+  id: string;
+  markerId: number;
+  name: string;
+  position: { x: number; y: number };
+  orientation: number;
+  approachPose: Pose;
+  dropPose: Pose;
+  exitPose: Pose;
+}
+
 export interface LandmarkState {
   id: number;
-  name: string; // 'RACK_1', 'RACK_2', 'RACK_3', 'RACK_4', 'ROBOT_1_START', 'ROBOT_2_START', 'DELIVERY_ZONE'
-  type: 'RACK' | 'START_ZONE' | 'DELIVERY';
+  name: string; // 'RACK_1', 'RACK_2', 'RACK_3', 'NAV_CENTER', 'ROBOT_1_START', 'ROBOT_2_START', 'DELIVERY_ZONE'
+  type: 'RACK' | 'START_ZONE' | 'DELIVERY' | 'NAV_CENTER';
   xCm: number;
   yCm: number;
   detected: boolean;
@@ -139,7 +173,7 @@ export interface TaskOrder {
   name: string;
   pickTarget: [number, number]; // [x, y] in cm
   dropTarget: [number, number]; // [x, y] in cm
-  rackMarkerId?: number; // 2, 3, 4, 5
+  rackMarkerId?: number; // 2, 3, 4
   dropMarkerId?: number; // 8
   status: 'OPEN' | 'ASSIGNED' | 'PICKING' | 'IN_TRANSIT' | 'COMPLETED';
   assignedTo?: string; // e.g. 'robot_0'
@@ -191,6 +225,10 @@ export interface SwarmState {
   workspace: WorkspaceCalibration;
 
   robots: RobotTwin[];
+
+  racks: RackState[];
+
+  deliveryZone?: ZoneState;
 
   landmarks: LandmarkState[];
 

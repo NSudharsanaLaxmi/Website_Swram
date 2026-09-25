@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SwarmState, RobotTwin, TaskOrder, LogPacket, WorkspaceCalibration, TelemetryMode, CommandAck, NetworkNodeState } from './types';
+import { SwarmState, RobotTwin, TaskOrder, LogPacket, WorkspaceCalibration, TelemetryMode, CommandAck, NetworkNodeState, RackState } from './types';
 import { Header } from './components/Header';
 import { WarehouseDigitalTwin } from './components/WarehouseDigitalTwin';
 import { PerceptionView } from './components/PerceptionView';
@@ -10,7 +10,7 @@ import { NetworkTopologyView } from './components/NetworkTopologyView';
 import { ProtocolTerminal } from './components/ProtocolTerminal';
 import { CodeViewer } from './components/CodeViewer';
 import { ArucoMarkerSheetModal } from './components/ArucoMarkerSheetModal';
-import { INITIAL_LANDMARKS_50, INITIAL_BOUNDARY_CORNERS } from './data/arucoMarkers';
+import { INITIAL_LANDMARKS_50, INITIAL_BOUNDARY_CORNERS, INITIAL_RACKS_STATE } from './data/arucoMarkers';
 import { WebSocketTelemetryClient } from './services/telemetry/WebSocketTelemetryClient';
 import { MockTelemetryClient } from './services/telemetry/MockTelemetryClient';
 
@@ -45,7 +45,10 @@ export default function App() {
     lastCalibratedTimestamp: Date.now()
   });
 
-  // Initial Robots State
+  // Initial 3-Rack State
+  const [racks, setRacks] = useState<RackState[]>(INITIAL_RACKS_STATE);
+
+  // Initial Robots State (Staged at Start 1 and Start 2)
   const [robots, setRobots] = useState<RobotTwin[]>([
     {
       id: 'robot_0',
@@ -56,10 +59,10 @@ export default function App() {
       battery: 98.0,
       voltage: 12.4,
       health: 100,
-      pose: { x: 25.0, y: 35.0, ang: 45.0 },
-      targetPos: [25.0, 30.0],
+      pose: { x: 20.0, y: 102.0, ang: -90.0 }, // Staged at Start 1 Bay
+      targetPos: [35.0, 32.0], // Rack 1 Pickup Pose
       missionState: 'IDLE',
-      assignedTaskId: null,
+      assignedTaskId: 'MISSION_101',
       tofDistanceMm: 350,
       ultrasonicCm: 80,
       lastRfidTag: 'RACK_1_TAG_42',
@@ -69,7 +72,7 @@ export default function App() {
       offlineQueueCount: 0,
       lastTelemetryTime: Date.now(),
       packetAgeMs: 0,
-      distToBoundaryCm: 25.0,
+      distToBoundaryCm: 20.0,
       outOfBounds: false,
       boundaryAlert: 'SAFE',
       batteryHistory: [
@@ -96,10 +99,10 @@ export default function App() {
       battery: 92.0,
       voltage: 12.2,
       health: 98,
-      pose: { x: 85.0, y: 75.0, ang: -110.0 },
-      targetPos: [95.0, 60.0],
+      pose: { x: 100.0, y: 102.0, ang: -90.0 }, // Staged at Start 2 Bay
+      targetPos: [85.0, 32.0], // Rack 2 Pickup Pose
       missionState: 'IDLE',
-      assignedTaskId: null,
+      assignedTaskId: 'MISSION_102',
       tofDistanceMm: 480,
       ultrasonicCm: 110,
       lastRfidTag: 'RACK_2_TAG_88',
@@ -109,7 +112,7 @@ export default function App() {
       offlineQueueCount: 0,
       lastTelemetryTime: Date.now(),
       packetAgeMs: 0,
-      distToBoundaryCm: 35.0,
+      distToBoundaryCm: 20.0,
       outOfBounds: false,
       boundaryAlert: 'SAFE',
       batteryHistory: [
@@ -129,19 +132,33 @@ export default function App() {
     }
   ]);
 
-  // Tasks & Network Nodes
+  // Tasks & Network Nodes (Assigned across different racks)
   const [tasks, setTasks] = useState<TaskOrder[]>([
     {
       id: 'MISSION_101',
       name: 'RACK_1 (ID 2) -> DELIVERY_ZONE (ID 8)',
-      pickTarget: [25.0, 30.0],
-      dropTarget: [95.0, 60.0],
+      pickTarget: [35.0, 32.0],
+      dropTarget: [60.0, 98.0],
       rackMarkerId: 2,
       dropMarkerId: 8,
       status: 'OPEN',
+      assignedTo: 'robot_0',
       itemType: 'Electronic Sensor Kit',
       rfidPayloadId: 'TAG_ES_901',
       createdAt: Date.now() - 30000
+    },
+    {
+      id: 'MISSION_102',
+      name: 'RACK_2 (ID 3) -> DELIVERY_ZONE (ID 8)',
+      pickTarget: [85.0, 32.0],
+      dropTarget: [60.0, 98.0],
+      rackMarkerId: 3,
+      dropMarkerId: 8,
+      status: 'OPEN',
+      assignedTo: 'robot_1',
+      itemType: 'Actuator Servo Pack',
+      rfidPayloadId: 'TAG_ACT_440',
+      createdAt: Date.now() - 15000
     }
   ]);
 
@@ -293,6 +310,7 @@ export default function App() {
             tasks={tasks}
             workspace={workspace}
             landmarks={INITIAL_LANDMARKS_50}
+            racks={racks}
             onAddTask={(t) => setTasks((prev) => [...prev, t])}
             onEmergencyHalt={handleEmergencyHalt}
           />
