@@ -198,7 +198,8 @@ export default function App() {
         dirs: [25, 26, 27, 14, 12, 13, 32, 33],
         stbyStatus: 'HARDWIRED_HIGH'
       },
-      armServos: { base: 300, shoulder: 200, elbow: 200, wrist: 300, gripper: 180 },
+      armServos: { base: 90, shoulder: 90, elbow: 90, joint4: 90, joint5: 180 },
+      mecanum: { vx: 0, vy: 0, omega: 0, driveMode: 'TESTED_2CHANNEL_SKID_STEER' },
       unoQStatus: { mpuOnline: true, zephyrMcuOnline: true, uartLinkBaud: 115200, uartConnected: true, cpuLoad: 14, ramUsageMb: 512 },
       esp32Status: { rtosOnline: true, wifiSignalDbm: -58, freeHeapBytes: 298450, watchdogStatus: 'OK' }
     },
@@ -238,7 +239,8 @@ export default function App() {
         dirs: [25, 26, 27, 14, 12, 13, 32, 33],
         stbyStatus: 'HARDWIRED_HIGH'
       },
-      armServos: { base: 300, shoulder: 200, elbow: 200, wrist: 300, gripper: 180 },
+      armServos: { base: 90, shoulder: 90, elbow: 90, joint4: 90, joint5: 180 },
+      mecanum: { vx: 0, vy: 0, omega: 0, driveMode: 'TESTED_2CHANNEL_SKID_STEER' },
       unoQStatus: { mpuOnline: true, zephyrMcuOnline: true, uartLinkBaud: 115200, uartConnected: true, cpuLoad: 18, ramUsageMb: 530 },
       esp32Status: { rtosOnline: true, wifiSignalDbm: -62, freeHeapBytes: 295100, watchdogStatus: 'OK' }
     }

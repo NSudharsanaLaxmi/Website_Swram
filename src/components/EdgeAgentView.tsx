@@ -216,50 +216,54 @@ export const EdgeAgentView: React.FC<EdgeAgentViewProps> = ({
           </div>
         </div>
 
-        {/* 4-DOF Arm Servos Gauge */}
+        {/* 5-DOF Arm Servos Gauge (MG996R on PCA9685 0x40) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-white">4-DOF Arm Servos (PCA9685)</h4>
-            <span className="text-[10px] font-mono text-slate-400">SOURCE: I2C 0x40</span>
+            <h4 className="text-sm font-bold text-white">5-DOF Robotic Arm (PCA9685)</h4>
+            <span className="text-[10px] font-mono text-cyan-400">MG996R I2C 0x40 CH0–CH4</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
             <div className="bg-slate-950 p-2 rounded border border-slate-800">
-              <span className="text-slate-400 block">CH0 Base:</span>
-              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.base} pulse</span>
+              <span className="text-slate-400 block">CH0 Base Yaw:</span>
+              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.base}° (0-180°)</span>
             </div>
             <div className="bg-slate-950 p-2 rounded border border-slate-800">
               <span className="text-slate-400 block">CH1 Shoulder:</span>
-              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.shoulder} pulse</span>
+              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.shoulder}° (15-165°)</span>
             </div>
             <div className="bg-slate-950 p-2 rounded border border-slate-800">
               <span className="text-slate-400 block">CH2 Elbow:</span>
-              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.elbow} pulse</span>
+              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.elbow}° (10-170°)</span>
             </div>
             <div className="bg-slate-950 p-2 rounded border border-slate-800">
-              <span className="text-slate-400 block">CH3 Wrist:</span>
-              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.wrist} pulse</span>
+              <span className="text-slate-400 block">CH3 Joint 4:</span>
+              <span className="text-cyan-300 font-bold">{selectedRobot.armServos.joint4}° (10-170°)</span>
+            </div>
+            <div className="col-span-2 bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center">
+              <span className="text-slate-400">CH4 Joint 5 Gripper:</span>
+              <span className="text-amber-300 font-bold">{selectedRobot.armServos.joint5}° (45° Grip - 180° Open)</span>
             </div>
           </div>
         </div>
 
-        {/* Onboard Sensors */}
+        {/* Onboard Sensors & Mecanum Kinematics */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-white">Onboard Sensors & Safety</h4>
-            <span className="text-[10px] font-mono text-slate-400">SOURCE: ToF / RFID</span>
+            <h4 className="text-sm font-bold text-white">Sensors & Kinematics Layer</h4>
+            <span className="text-[10px] font-mono text-emerald-400">2-Ch Spliced / Mecanum IK</span>
           </div>
 
           <div className="space-y-2 text-xs font-mono">
-            <div className="bg-slate-950 p-2.5 rounded border border-slate-800 flex justify-between items-center">
+            <div className="bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center">
+              <span className="text-slate-400">Drive Mode:</span>
+              <span className="text-cyan-300 font-bold">2-CH SPLICED SKID-STEER</span>
+            </div>
+            <div className="bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center">
               <span className="text-slate-400">VL53L0X Laser ToF:</span>
               <span className="text-emerald-400 font-bold">{selectedRobot.tofDistanceMm} mm</span>
             </div>
-            <div className="bg-slate-950 p-2.5 rounded border border-slate-800 flex justify-between items-center">
-              <span className="text-slate-400">HC-SR04 Ultrasonic:</span>
-              <span className="text-cyan-300 font-bold">{selectedRobot.ultrasonicCm} cm</span>
-            </div>
-            <div className="bg-slate-950 p-2.5 rounded border border-slate-800 flex justify-between items-center">
+            <div className="bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center">
               <span className="text-slate-400">RC522 RFID Tag:</span>
               <span className="text-amber-300 font-bold">{selectedRobot.lastRfidTag || 'NONE'}</span>
             </div>

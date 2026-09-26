@@ -8,6 +8,7 @@ interface ClawStateMachinePanelProps {
 
 export const ClawStateMachinePanel: React.FC<ClawStateMachinePanelProps> = ({ clawTelemetry }) => {
   const currentIndex = clawTelemetry.currentPhaseIndex;
+  const joints = clawTelemetry.armJoints || { base: 90, shoulder: 90, elbow: 90, joint4: 90, joint5: 180 };
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-5 font-mono">
@@ -17,10 +18,10 @@ export const ClawStateMachinePanel: React.FC<ClawStateMachinePanelProps> = ({ cl
           <Disc className="w-5 h-5 text-amber-400" />
           <div>
             <h3 className="text-sm font-bold text-white tracking-wide">
-              16-Phase Pick-and-Drop Manipulator State Machine
+              16-Phase Pick-and-Drop 5-DOF Manipulator State Machine
             </h3>
             <p className="text-[11px] text-slate-400">
-              4-DOF Robotic Arm + MG90S Gripper (PCA9685 I2C 0x40 CH0–CH4) Real-Time Physical Actuation
+              5-DOF MG996R Robotic Arm + Gripper (PCA9685 I2C 0x40 CH0–CH4) Real-Time Physical Actuation
             </p>
           </div>
         </div>
@@ -43,7 +44,6 @@ export const ClawStateMachinePanel: React.FC<ClawStateMachinePanelProps> = ({ cl
           {clawTelemetry.phases.map((phase, idx) => {
             const isCompleted = idx < currentIndex;
             const isCurrent = idx === currentIndex;
-            const isUpcoming = idx > currentIndex;
 
             return (
               <div
@@ -74,44 +74,66 @@ export const ClawStateMachinePanel: React.FC<ClawStateMachinePanelProps> = ({ cl
         </div>
       </div>
 
-      {/* Real-Time Actuator & Gripper Telemetry Gauges */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Arm Position Angle */}
-        <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
-          <span className="text-slate-400 text-[10px] uppercase block">Arm Articulation</span>
-          <div className="text-base font-bold text-white">
-            {clawTelemetry.armAngleDeg.toFixed(1)}° <span className="text-xs text-slate-400 font-normal">Interpolated</span>
+      {/* 5-DOF Real-Time Joint Telemetry Gauges */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* CH0: Base Yaw */}
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+          <div className="flex justify-between text-[10px] text-slate-400 uppercase">
+            <span>CH0 Base Yaw</span>
+            <span className="text-cyan-400 font-bold">0-180°</span>
           </div>
-          <span className="text-[10px] text-cyan-400">PCA9685 CH1-CH3</span>
+          <div className="text-base font-bold text-white">{joints.base}°</div>
+          <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-cyan-500 h-full" style={{ width: `${(joints.base / 180) * 100}%` }} />
+          </div>
         </div>
 
-        {/* Gripper State */}
-        <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
-          <span className="text-slate-400 text-[10px] uppercase block">Claw Gripper Angle</span>
-          <div className="text-base font-bold text-amber-300">
-            {clawTelemetry.gripperDeg}° ({clawTelemetry.gripperState})
+        {/* CH1: Shoulder Pitch */}
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+          <div className="flex justify-between text-[10px] text-slate-400 uppercase">
+            <span>CH1 Shoulder</span>
+            <span className="text-cyan-400 font-bold">15-165°</span>
           </div>
-          <span className="text-[10px] text-slate-500">85° Closed — 180° Open</span>
+          <div className="text-base font-bold text-white">{joints.shoulder}°</div>
+          <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-cyan-500 h-full" style={{ width: `${(joints.shoulder / 180) * 100}%` }} />
+          </div>
         </div>
 
-        {/* Object Optical Verification */}
-        <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
-          <span className="text-slate-400 text-[10px] uppercase block">Object Detection</span>
-          <div className="text-base font-bold text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>DETECTED</span>
+        {/* CH2: Elbow Pitch */}
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+          <div className="flex justify-between text-[10px] text-slate-400 uppercase">
+            <span>CH2 Elbow</span>
+            <span className="text-cyan-400 font-bold">10-170°</span>
           </div>
-          <span className="text-[10px] text-slate-500">ToF Docking Range &lt; 60mm</span>
+          <div className="text-base font-bold text-white">{joints.elbow}°</div>
+          <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-cyan-500 h-full" style={{ width: `${(joints.elbow / 180) * 100}%` }} />
+          </div>
         </div>
 
-        {/* Grip Confirmation */}
-        <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
-          <span className="text-slate-400 text-[10px] uppercase block">Grip Confirmation</span>
-          <div className="text-base font-bold text-emerald-400 flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4" />
-            <span>CONFIRMED</span>
+        {/* CH3: Joint 4 / Wrist */}
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+          <div className="flex justify-between text-[10px] text-slate-400 uppercase">
+            <span>CH3 Joint 4</span>
+            <span className="text-cyan-400 font-bold">10-170°</span>
           </div>
-          <span className="text-[10px] text-slate-500">Servo Pulse Locked</span>
+          <div className="text-base font-bold text-white">{joints.joint4}°</div>
+          <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-cyan-500 h-full" style={{ width: `${(joints.joint4 / 180) * 100}%` }} />
+          </div>
+        </div>
+
+        {/* CH4: Joint 5 / Gripper */}
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+          <div className="flex justify-between text-[10px] text-slate-400 uppercase">
+            <span>CH4 Gripper</span>
+            <span className="text-amber-400 font-bold">{clawTelemetry.gripperState}</span>
+          </div>
+          <div className="text-base font-bold text-amber-300">{joints.joint5}°</div>
+          <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-amber-500 h-full" style={{ width: `${(joints.joint5 / 180) * 100}%` }} />
+          </div>
         </div>
       </div>
     </div>

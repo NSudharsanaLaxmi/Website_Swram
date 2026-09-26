@@ -35,11 +35,11 @@ export const HARDWARE_PINS: HardwarePin[] = [
   { pin: 'GPIO 32, 33', function: 'PIN_R_BIN1, PIN_R_BIN2', layer: 'ESP32', targetDevice: 'TB6612 #2 (Rear-Right)', notes: 'Direction polarity for Rear-Right wheel' },
   { pin: 'GPIO 21 (SDA)', function: 'I2C_SDA_PIN', layer: 'ESP32', targetDevice: 'PCA9685 / OLED / VL53L0X', notes: 'Master I2C Data bus shared by arm, display, and laser ToF' },
   { pin: 'GPIO 22 (SCL)', function: 'I2C_SCL_PIN', layer: 'ESP32', targetDevice: 'PCA9685 / OLED / VL53L0X', notes: 'Master I2C Clock bus (400 kHz Fast Mode)' },
-  { pin: 'PCA9685 CH0', function: 'SERVO_CH_BASE', layer: 'ACTUATOR_SENSOR', targetDevice: 'MG90S Base Servo', notes: 'Arm base rotational yaw (0° - 180°)' },
-  { pin: 'PCA9685 CH1', function: 'SERVO_CH_SHOULDER', layer: 'ACTUATOR_SENSOR', targetDevice: 'MG90S Shoulder Servo', notes: 'Arm shoulder pitch' },
-  { pin: 'PCA9685 CH2', function: 'SERVO_CH_ELBOW', layer: 'ACTUATOR_SENSOR', targetDevice: 'MG90S Elbow Servo', notes: 'Arm elbow pitch' },
-  { pin: 'PCA9685 CH3', function: 'SERVO_CH_WRIST', layer: 'ACTUATOR_SENSOR', targetDevice: 'MG90S Wrist Servo', notes: 'Arm wrist pitch' },
-  { pin: 'PCA9685 CH4', function: 'SERVO_CH_GRIPPER', layer: 'ACTUATOR_SENSOR', targetDevice: 'MG90S Claw Gripper', notes: 'Claw: 180° (Open), 85° (Grip Payload)' },
+  { pin: 'PCA9685 CH0', function: 'SERVO_CH_BASE', layer: 'ACTUATOR_SENSOR', targetDevice: '5-DOF MG996R Base Yaw', notes: 'Arm base rotational yaw (0° - 180°, Home: 90°)' },
+  { pin: 'PCA9685 CH1', function: 'SERVO_CH_SHOULDER', layer: 'ACTUATOR_SENSOR', targetDevice: '5-DOF MG996R Shoulder Pitch', notes: 'Arm shoulder pitch (15° - 165°, Home: 90°)' },
+  { pin: 'PCA9685 CH2', function: 'SERVO_CH_ELBOW', layer: 'ACTUATOR_SENSOR', targetDevice: '5-DOF MG996R Elbow Pitch', notes: 'Arm elbow pitch (10° - 170°, Home: 90°)' },
+  { pin: 'PCA9685 CH3', function: 'SERVO_CH_JOINT4', layer: 'ACTUATOR_SENSOR', targetDevice: '5-DOF MG996R Joint 4 Wrist', notes: 'Arm wrist pitch (10° - 170°, Home: 90°)' },
+  { pin: 'PCA9685 CH4', function: 'SERVO_CH_JOINT5', layer: 'ACTUATOR_SENSOR', targetDevice: '5-DOF MG996R Joint 5 Gripper', notes: 'Claw Gripper: 180° (Open), 45° (Grip Payload)' },
   { pin: 'GPIO 15 / 34', function: 'PIN_US_TRIG / PIN_US_ECHO', layer: 'ESP32', targetDevice: 'HC-SR04 Ultrasonic', notes: 'Trigger output on 15; Echo input on 34 via 5V->3.3V divider' },
   { pin: 'SPI SS:5, RST:2', function: 'RC522 SPI PINS', layer: 'ESP32', targetDevice: 'MFRC522 RFID Reader', notes: 'Ground-truth rack identification (SCK:18, MISO:19, MOSI:23)' },
   { pin: 'UART TX/RX', function: 'UART Bridge', layer: 'ARDUINO_UNO_Q', targetDevice: 'Qualcomm QRB2210 <-> ESP32', notes: 'Deterministic 115200 baud serial telemetry bridge' },
@@ -63,14 +63,14 @@ export const IMPLEMENTATION_STEPS: ImplementationStep[] = [
   {
     step: 2,
     title: 'Flash Master Integrated ESP32 Firmware',
-    summary: 'Compiles and flashes integrated_robot.ino containing TB6612 motor kinematics, PCA9685 4-DOF manipulator, and ToF safety braking.',
+    summary: 'Compiles and flashes integrated_robot.ino containing TB6612 motor kinematics, 5-DOF MG996R manipulator on PCA9685 CH0-CH4, and ToF safety braking.',
     commands: [
       'arduino-cli compile --fqbn esp32:esp32:esp32 firmware/integrated_robot',
       'arduino-cli upload -p COM3 --fqbn esp32:esp32:esp32 firmware/integrated_robot'
     ],
     checks: [
       'TB6612 motor PWM responds on GPIO 4 and 5',
-      'PCA9685 I2C 0x40 initializes with smooth pose interpolation',
+      'PCA9685 I2C 0x40 initializes with 5-DOF MG996R smooth pose interpolation',
       'VL53L0X initiates emergency brake when obstruction < 120 mm'
     ]
   },
@@ -112,8 +112,8 @@ export const SOURCE_FILES: SourceFile[] = [
     category: 'FIRMWARE',
     language: 'cpp',
     platform: 'ESP32 Arduino Framework',
-    description: 'Central configuration header containing frozen motor GPIOs, I2C addresses, PCA9685 servo channels, safety thresholds, and DICT_4X4_50 marker IDs.',
-    keyFeatures: ['DICT_4X4_50 Markers 0-12', 'TB6612 Dual PWM (D4/D5)', 'PCA9685 4-DOF Arm (0x40)', 'ToF Laser Brake < 120mm'],
+    description: 'Central configuration header containing frozen motor GPIOs, I2C addresses, PCA9685 5-DOF MG996R servo channels, safety thresholds, and DICT_4X4_50 marker IDs.',
+    keyFeatures: ['DICT_4X4_50 Markers 0-12', 'TB6612 Dual PWM (D4/D5)', 'PCA9685 5-DOF MG996R Arm (0x40)', 'ToF Laser Brake < 120mm'],
     code: `#ifndef CONFIG_H
 #define CONFIG_H
 
@@ -122,9 +122,9 @@ export const SOURCE_FILES: SourceFile[] = [
 // =========================================================================
 // 1. SWARM IDENTITY & ARUCO DICTIONARY (DICT_4X4_50)
 // =========================================================================
-// Set MY_ROBOT_ID to 0 for Robot 1 (Marker ID 0); set to 1 for Robot 2 (Marker ID 1)
-#define MY_ROBOT_ID         0
-#define PEER_ROBOT_ID       ((MY_ROBOT_ID == 0) ? 1 : 0)
+// Set ROBOT_ID to 0 for Robot 1 (Marker ID 0); set to 1 for Robot 2 (Marker ID 1)
+#define ROBOT_ID            0
+#define PEER_ROBOT_ID       ((ROBOT_ID == 0) ? 1 : 0)
 
 #define ARUCO_DICT_NAME     "DICT_4X4_50"
 
@@ -138,7 +138,7 @@ export const SOURCE_FILES: SourceFile[] = [
 #define WIFI_PASS           "YOUR_HOTSPOT_PASSWORD"
 
 #define UDP_CMD_PORT        8888  // Direct velocity streaming port
-#define UDP_SWARM_PORT      5005  // Global ArUco swarm state broadcast port
+#define UDP_VISION_PORT     5005  // Global ArUco swarm state broadcast port
 
 // =========================================================================
 // 2. TB6612FNG MOTOR CONTROLLER PINS (FROZEN PHYSICAL BASELINE)
@@ -172,213 +172,287 @@ export const SOURCE_FILES: SourceFile[] = [
 #define ADDR_VL53L0X        0x29  // Time-of-Flight Laser Distance Sensor
 
 // =========================================================================
-// 4. PCA9685 SERVO CHANNEL ALLOCATION (4-DOF ARM + GRIPPER)
+// 4. PCA9685 SERVO CHANNEL ALLOCATION (5-DOF MG996R ARM)
 // =========================================================================
-#define SERVO_CH_BASE       0
-#define SERVO_CH_SHOULDER   1
-#define SERVO_CH_ELBOW      2
-#define SERVO_CH_WRIST      3
-#define SERVO_CH_GRIPPER    4
+#define SERVO_CH_BASE       0     // Joint 1: Base Yaw (0..180 deg, Home: 90)
+#define SERVO_CH_SHOULDER   1     // Joint 2: Shoulder Pitch (15..165 deg, Home: 90)
+#define SERVO_CH_ELBOW      2     // Joint 3: Elbow Pitch (10..170 deg, Home: 90)
+#define SERVO_CH_JOINT4     3     // Joint 4: Wrist Pitch (10..170 deg, Home: 90)
+#define SERVO_CH_JOINT5     4     // Joint 5: Gripper Claw (45..180 deg, Home: 180 Open)
 
-#define SERVO_PULSE_MIN     150   // ~0 degrees (MG90S)
-#define SERVO_PULSE_MAX     600   // ~180 degrees (MG90S)
-
-#define GRIPPER_OPEN_DEG    180
-#define GRIPPER_CLOSED_DEG  85
+#define SERVO_PULSE_MIN     150   // ~0 degrees (MG996R)
+#define SERVO_PULSE_MAX     600   // ~180 degrees (MG996R)
 
 // =========================================================================
-// 5. SPI BUS & RC522 RFID READER PINS
-// =========================================================================
-#define RFID_SS_PIN         5
-#define RFID_RST_PIN        2
-#define RFID_SCK_PIN        18
-#define RFID_MISO_PIN       19
-#define RFID_MOSI_PIN       23
-
-// =========================================================================
-// 6. ULTRASONIC HC-SR04 PROXIMITY SENSOR
-// =========================================================================
-#define PIN_US_TRIG         15
-#define PIN_US_ECHO         34    // Input-only pin (via 5V->3.3V divider)
-
-// =========================================================================
-// 7. SWARM KINEMATICS & SAFETY THRESHOLDS
+// 5. SWARM KINEMATICS & SAFETY THRESHOLDS
 // =========================================================================
 #define SWARM_SAFE_DIST_CM    28.0f // Inter-robot yield threshold
 #define ARRIVAL_THRESH_CM     8.0f  // Waypoint arrival tolerance
 #define HEADING_DEADBAND_DEG  20.0f // Pivoting threshold
 #define TOF_DOCK_DIST_MM      60    // Precision pallet pick distance
-#define WATCHDOG_TIMEOUT_MS   600   // Failsafe brake timeout
+#define TOF_SAFETY_BRAKE_MM   120   // Emergency laser brake threshold
+#define WATCHDOG_TIMEOUT_MS   500   // Failsafe comms timeout
 
 #endif // CONFIG_H`
   },
   {
-    id: 'integrated-robot-ino',
-    name: 'integrated_robot.ino',
-    moduleTitle: 'Master Autonomous Swarm Robot Firmware',
+    id: 'mecanum-controller-h',
+    name: 'MecanumController.h',
+    moduleTitle: 'Mecanum Kinematics & Locomotion Abstraction',
     category: 'FIRMWARE',
     language: 'cpp',
     platform: 'ESP32 DevKit V1',
-    description: 'Master autonomous firmware coordinating 4WD kinematics, 4-DOF manipulator, multi-sensor safety, and right-of-way arbitration.',
-    keyFeatures: ['Warehouse Mission FSM', 'Decentralized Swarm Arbitration', 'Autonomous Waypoint Tracking', 'ToF Obstacle Braking'],
+    description: 'Kinematics layer mapping (vx, vy, omega) velocity inputs to 4-wheel drive systems, supporting tested 2-channel skid-steer and future independent 4-wheel Mecanum drive.',
+    keyFeatures: ['(vx, vy, omega) Kinematics', 'Skid-Steer Baseline Mode', 'Independent 4-Wheel Drive Expansion', 'Velocity Deadband Clamping'],
+    code: `#ifndef MECANUM_CONTROLLER_H
+#define MECANUM_CONTROLLER_H
+
+#include <Arduino.h>
+#include "MotorDriver.h"
+
+enum DriveMode {
+  DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER = 0,
+  DRIVE_MODE_INDEPENDENT_4W_MECANUM     = 1
+};
+
+class MecanumController {
+public:
+  MecanumController(MotorDriver& motorDriver);
+  void init(DriveMode mode = DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER);
+  void driveVelocity(float vx, float vy, float omega);
+  void stop();
+  void setDriveMode(DriveMode mode);
+  DriveMode getDriveMode() const;
+
+private:
+  MotorDriver& _motors;
+  DriveMode _driveMode;
+  void _executeSkidSteer(float vx, float omega);
+};
+
+#endif // MECANUM_CONTROLLER_H`
+  },
+  {
+    id: 'arm-controller-h',
+    name: 'ArmController.h',
+    moduleTitle: '5-DOF MG996R Arm Controller & Trajectory Planner',
+    category: 'FIRMWARE',
+    language: 'cpp',
+    platform: 'ESP32 / PCA9685 (0x40)',
+    description: 'Hardware controller for 5-DOF MG996R arm on PCA9685 CH0-CH4. Provides 50 Hz non-blocking cubic-bezier trajectory interpolation, soft limit clamping, and named mission poses.',
+    keyFeatures: ['5-DOF MG996R Servos (CH0-CH4)', '50 Hz Non-blocking Interpolation', 'Soft Limits Clamping', '7 Predefined Warehouse Poses'],
+    code: `#ifndef ARM_CONTROLLER_H
+#define ARM_CONTROLLER_H
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+#include "Config.h"
+
+enum ArmPoseName {
+  POSE_HOME,
+  POSE_APPROACH,
+  POSE_PICK,
+  POSE_LIFT,
+  POSE_TRANSPORT,
+  POSE_DROP,
+  POSE_RETRACT
+};
+
+struct ArmJointAngles {
+  float base;      // CH0
+  float shoulder;  // CH1
+  float elbow;     // CH2
+  float joint4;    // CH3
+  float joint5;    // CH4 (Gripper)
+};
+
+class ArmController {
+public:
+  ArmController();
+  bool init();
+  void update();
+  void setTargetPose(ArmPoseName pose, uint32_t durationMs = 800);
+  void setTargetJoints(const ArmJointAngles& target, uint32_t durationMs = 800);
+  void openGripper(uint32_t durationMs = 400);
+  void closeGripper(uint32_t durationMs = 400);
+  ArmJointAngles getCurrentJoints() const;
+  bool isMoving() const;
+
+private:
+  Adafruit_PWMServoDriver _pwm;
+  ArmJointAngles _currentJoints;
+  ArmJointAngles _startJoints;
+  ArmJointAngles _targetJoints;
+  uint32_t _moveStartTime;
+  uint32_t _moveDuration;
+  bool _isMoving;
+  void _writeServoAngle(uint8_t channel, float angleDeg);
+};
+
+#endif // ARM_CONTROLLER_H`
+  },
+  {
+    id: 'safety-controller-h',
+    name: 'SafetyController.h',
+    moduleTitle: 'Multi-Layered Safety Interlocks & Arbitration',
+    category: 'FIRMWARE',
+    language: 'cpp',
+    platform: 'ESP32 DevKit V1',
+    description: 'Prioritized failsafe supervisor evaluating E-Stop, Laser ToF proximity (<120mm), Swarm collision yielding (28cm), and UDP communication watchdogs (500ms).',
+    keyFeatures: ['Prioritized Safety Matrix', 'Laser ToF Hard Brake (<120mm)', 'Swarm Right-of-Way Yielding', '500ms Communication Watchdog'],
+    code: `#ifndef SAFETY_CONTROLLER_H
+#define SAFETY_CONTROLLER_H
+
+#include <Arduino.h>
+#include "Config.h"
+
+enum SafetyState {
+  SAFETY_STATE_NORMAL = 0,
+  SAFETY_STATE_SWARM_YIELDING,
+  SAFETY_STATE_OBSTACLE_BRAKE,
+  SAFETY_STATE_COMM_TIMEOUT,
+  SAFETY_STATE_EMERGENCY_STOP
+};
+
+class SafetyController {
+public:
+  SafetyController();
+  void init();
+  SafetyState evaluate(uint16_t tofDistanceMm, float peerDistanceCm, bool eStopActive, uint32_t lastCmdTimeMs);
+  bool isMotionAllowed() const;
+  SafetyState getCurrentState() const;
+  const char* getStateString() const;
+
+private:
+  SafetyState _state;
+};
+
+#endif // SAFETY_CONTROLLER_H`
+  },
+  {
+    id: 'mission-controller-h',
+    name: 'MissionController.h',
+    moduleTitle: '15-State Warehouse Fulfillment State Machine',
+    category: 'FIRMWARE',
+    language: 'cpp',
+    platform: 'ESP32 DevKit V1',
+    description: 'Autonomous warehouse state machine executing pick-and-place fulfillment across 3 racks and delivery zones without blocking delays.',
+    keyFeatures: ['15-Phase Mission Lifecycle', 'Non-blocking millis() Timers', 'RFID Rack Verification', 'Dynamic Waypoint Sequencing'],
+    code: `#ifndef MISSION_CONTROLLER_H
+#define MISSION_CONTROLLER_H
+
+#include <Arduino.h>
+#include "Config.h"
+
+enum MissionState {
+  MISSION_IDLE,
+  MISSION_NAV_TO_PICK_CORRIDOR,
+  MISSION_ALIGN_PICK,
+  MISSION_APPROACH_RACK,
+  MISSION_VERIFY_RFID,
+  MISSION_EXECUTE_PICK,
+  MISSION_RETRACT_LOADED,
+  MISSION_NAV_TO_DROP_CORRIDOR,
+  MISSION_ALIGN_DROP,
+  MISSION_APPROACH_DROP,
+  MISSION_EXECUTE_DROP,
+  MISSION_RETRACT_EMPTY,
+  MISSION_NAV_TO_HOME,
+  MISSION_YIELDING,
+  MISSION_FAULT_HALT
+};
+
+class MissionController {
+public:
+  MissionController();
+  void init();
+  void update();
+  void assignTask(int rackMarkerId, int dropMarkerId);
+  MissionState getState() const;
+  const char* getStateString() const;
+
+private:
+  MissionState _state;
+  MissionState _previousState;
+  int _targetRackId;
+  int _targetDropId;
+  uint32_t _stateTimer;
+};
+
+#endif // MISSION_CONTROLLER_H`
+  },
+  {
+    id: 'integrated-robot-ino',
+    name: 'integrated_robot.ino',
+    moduleTitle: 'Master Autonomous Swarm Robot Firmware Entrypoint',
+    category: 'FIRMWARE',
+    language: 'cpp',
+    platform: 'ESP32 DevKit V1',
+    description: 'Master autonomous firmware entrypoint orchestrating kinematics, 5-DOF MG996R manipulator, sensor suite, safety interlocks, and 10 Hz JSON telemetry.',
+    keyFeatures: ['Modular Architecture', '5-DOF MG996R PCA9685 Control', '10 Hz Telemetry JSON Generator', 'Closed-Loop ArUco Guidance'],
     code: `#include "Config.h"
 #include "MotorDriver.h"
+#include "MecanumController.h"
 #include "ArmController.h"
 #include "SensorSuite.h"
-#include "DisplayManager.h"
 #include "SwarmComms.h"
+#include "NavigationController.h"
+#include "SafetyController.h"
+#include "MissionController.h"
+#include "Telemetry.h"
+#include "DisplayManager.h"
 
-// Global Subsystem Instances
-MotorDriver    motors;
-ArmController  arm;
-SensorSuite    sensors;
-DisplayManager display;
-SwarmComms     comms;
-
-// Warehouse Mission State Machine
-enum RobotMissionState {
-  STATE_IDLE,
-  STATE_NAV_TO_PICK,
-  STATE_RACK_VERIFY,
-  STATE_PRECISION_DOCK,
-  STATE_PICK_PAYLOAD,
-  STATE_NAV_TO_DROP,
-  STATE_RELEASE_PAYLOAD,
-  STATE_YIELDING
-};
-
-RobotMissionState currentState  = STATE_NAV_TO_PICK;
-RobotMissionState previousState = STATE_NAV_TO_PICK;
-
-struct Waypoint {
-  float x;
-  float y;
-};
-
-Waypoint pickLocation = (MY_ROBOT_ID == 0) ? Waypoint{35.0f, 32.0f} : Waypoint{85.0f, 32.0f};
-Waypoint dropLocation = Waypoint{60.0f, 98.0f};
-Waypoint activeGoal   = pickLocation;
-
-void navigateTowards(float targetX, float targetY, SwarmPose pose) {
-  float dx = targetX - pose.x;
-  float dy = targetY - pose.y;
-  float desiredAngle = atan2(dy, dx) * 180.0f / M_PI;
-  float angleError   = desiredAngle - pose.ang;
-
-  while (angleError > 180.0f)  angleError -= 360.0f;
-  while (angleError < -180.0f) angleError += 360.0f;
-
-  if (abs(angleError) > HEADING_DEADBAND_DEG) {
-    if (angleError > 0) {
-      motors.setRawMotors(-130, 130); // Pivot CCW
-    } else {
-      motors.setRawMotors(130, -130); // Pivot CW
-    }
-  } else {
-    int basePwm = 135;
-    int trim = (int)(angleError * 1.4f);
-    motors.setRawMotors(basePwm - trim, basePwm + trim);
-  }
-}
+// Subsystem Instances
+MotorDriver          motorDriver;
+MecanumController    mecanum(motorDriver);
+ArmController        arm;
+SensorSuite          sensors;
+SwarmComms           comms;
+NavigationController nav;
+SafetyController     safety;
+MissionController    mission;
+Telemetry            telemetry;
+DisplayManager       display;
 
 void setup() {
   Serial.begin(115200);
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(400000);
 
   display.init();
-  motors.init();
+  motorDriver.init();
+  mecanum.init(DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER);
   arm.init();
   sensors.init();
   comms.init();
+  nav.init();
+  safety.init();
+  mission.init();
 }
 
 void loop() {
   comms.update();
   sensors.update();
+  arm.update();
+  mission.update();
 
-  SwarmPose myPose = comms.getMyPose();
+  // 1. Safety Interlock Evaluation
+  uint16_t tofMm = sensors.getTofDistanceMM();
+  float peerDist = comms.getPeerDistanceCm();
+  SafetyState safeState = safety.evaluate(tofMm, peerDist, false, comms.getLastCommandAgeMs());
 
-  // 1. Local Obstacle Safety Brake
-  if (sensors.isForwardPathBlocked() && currentState != STATE_PRECISION_DOCK && currentState != STATE_PICK_PAYLOAD) {
-    motors.stop();
-    display.render("SAFETY STOP", myPose.x, myPose.y, myPose.ang, sensors.getLastScannedRFID().c_str(), comms.isConnected());
-    return;
+  // 2. Motion Execution
+  if (!safety.isMotionAllowed()) {
+    mecanum.stop();
+  } else {
+    // Execute closed-loop navigation or state machine commands
+    nav.update(mecanum);
   }
 
-  // 2. Swarm Collision Yielding
-  if (comms.isPeerNear(SWARM_SAFE_DIST_CM)) {
-    if (MY_ROBOT_ID > PEER_ROBOT_ID && currentState != STATE_PICK_PAYLOAD && currentState != STATE_RELEASE_PAYLOAD) {
-      if (currentState != STATE_YIELDING) {
-        previousState = currentState;
-        currentState = STATE_YIELDING;
-      }
-    }
-  } else if (currentState == STATE_YIELDING) {
-    currentState = previousState;
-  }
-
-  // 3. Autonomous Mission FSM
-  switch (currentState) {
-    case STATE_NAV_TO_PICK:
-      navigateTowards(pickLocation.x, pickLocation.y, myPose);
-      if (hypot(pickLocation.x - myPose.x, pickLocation.y - myPose.y) < ARRIVAL_THRESH_CM) {
-        motors.stop();
-        currentState = STATE_RACK_VERIFY;
-      }
-      break;
-
-    case STATE_RACK_VERIFY:
-      if (sensors.getLastScannedRFID().length() > 0) {
-        currentState = STATE_PRECISION_DOCK;
-      }
-      break;
-
-    case STATE_PRECISION_DOCK:
-      if (sensors.getTofDistanceMM() > TOF_DOCK_DIST_MM) {
-        motors.setRawMotors(90, 90);
-      } else {
-        motors.stop();
-        currentState = STATE_PICK_PAYLOAD;
-      }
-      break;
-
-    case STATE_PICK_PAYLOAD:
-      arm.setPose(POSE_PICK, 600);
-      delay(700);
-      arm.closeGripper();
-      delay(400);
-      arm.setPose(POSE_LIFT, 600);
-      currentState = STATE_NAV_TO_DROP;
-      break;
-
-    case STATE_NAV_TO_DROP:
-      navigateTowards(dropLocation.x, dropLocation.y, myPose);
-      if (hypot(dropLocation.x - myPose.x, dropLocation.y - myPose.y) < ARRIVAL_THRESH_CM) {
-        motors.stop();
-        currentState = STATE_RELEASE_PAYLOAD;
-      }
-      break;
-
-    case STATE_RELEASE_PAYLOAD:
-      arm.setPose(POSE_DROP, 600);
-      delay(700);
-      arm.openGripper();
-      delay(400);
-      arm.setPose(POSE_REST, 600);
-      currentState = STATE_IDLE;
-      break;
-
-    case STATE_YIELDING:
-      motors.stop();
-      break;
-
-    case STATE_IDLE:
-    default:
-      motors.stop();
-      break;
-  }
-
-  display.render("AUTO RUN", myPose.x, myPose.y, myPose.ang, sensors.getLastScannedRFID().c_str(), comms.isConnected());
+  // 3. 10 Hz Telemetry Serialization
+  telemetry.broadcast10Hz(comms, arm, sensors, safety, mission);
+  display.render(safety.getStateString(), comms.getMyPose(), sensors.getLastScannedRFID());
 }`
   },
   {
@@ -388,8 +462,8 @@ void loop() {
     category: 'BRIDGE',
     language: 'python',
     platform: 'Python 3 / Linux MPU',
-    description: 'High-throughput async WebSocket server hosting ws://0.0.0.0:8080/ws to stream live perception, candidate task allocation, and 16-phase claw state machine.',
-    keyFeatures: ['WebSocket Server (Port 8080)', 'Multi-Candidate Cost Function', 'Sensor Fusion Evaluation', 'Deterministic Command Routing'],
+    description: 'High-throughput async WebSocket server hosting ws://0.0.0.0:8080/ws to stream live perception, candidate task allocation, and 16-phase claw state machine with 5-DOF MG996R angles.',
+    keyFeatures: ['WebSocket Server (Port 8080)', '5-DOF MG996R Joint Telemetry', 'Multi-Candidate Cost Function', 'Deterministic Command Routing'],
     code: `#!/usr/bin/env python3
 """
 Arduino UNO Q Swarm Gateway Telemetry Server
@@ -481,9 +555,8 @@ def generate_swarm_telemetry():
             "currentPhase": "IDLE",
             "currentPhaseIndex": 0,
             "targetRackId": "RACK_1",
-            "armAngleDeg": 0,
+            "armJoints": {"base": 90, "shoulder": 90, "elbow": 90, "joint4": 90, "joint5": 180},
             "gripperState": "OPEN",
-            "gripperDeg": 180,
             "objectDetected": False,
             "gripConfirmed": False
         },
@@ -526,91 +599,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())`
-  },
-  {
-    id: 'uno-q-agent-py',
-    name: 'uno_q_swarm_agent.py',
-    moduleTitle: 'Arduino UNO Q High-Level Edge Coordinator',
-    category: 'COORDINATOR',
-    language: 'python',
-    platform: 'Linux MPU (Qualcomm QRB2210)',
-    description: 'Autonomous edge coordinator reading overhead UDP ArUco frames and executing UART serial trajectory dispatch to the ESP32.',
-    keyFeatures: ['Hardware UART Link (115200 Baud)', 'Swarm Collision Arbitration', 'Corridor Tracking', 'Ground-Truth Verification'],
-    code: `#!/usr/bin/env python3
-"""
-Arduino UNO Q Linux Edge Brain
-Processes global ArUco coordinates, evaluates decentralized collision avoidance,
-and streams trajectory commands over hardware UART to the ESP32 real-time controller.
-"""
-import json
-import logging
-import math
-import serial
-import socket
-import sys
-import time
-
-UART_PORT = "/dev/ttyS0"
-UART_BAUD = 115200
-UDP_VISION_PORT = 5005
-MY_ROBOT_ID = 0
-SWARM_SAFE_DIST_CM = 28.0
-
-def calculate_steering(current_x, current_y, current_ang, target_x, target_y):
-    dx = target_x - current_x
-    dy = target_y - current_y
-    dist = math.hypot(dx, dy)
-    target_heading = math.degrees(math.atan2(dy, dx))
-    heading_err = target_heading - current_ang
-
-    while heading_err > 180: heading_err -= 360
-    while heading_err < -180: heading_err += 360
-
-    if abs(heading_err) > 20:
-        lin = 0.0
-        ang = 0.6 if heading_err > 0 else -0.6
-    else:
-        lin = 0.25
-        ang = heading_err * 0.02
-
-    return lin, ang, dist
-
-def main():
-    try:
-        ser = serial.Serial(UART_PORT, UART_BAUD, timeout=0.05)
-    except Exception as e:
-        ser = None
-
-    rx_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    rx_sock.bind(("", UDP_VISION_PORT))
-    rx_sock.settimeout(0.5)
-
-    while True:
-        try:
-            data, _ = rx_sock.recvfrom(2048)
-            frame = json.loads(data.decode("utf-8"))
-            bots = frame.get("bots", {})
-            my_bot = bots.get(f"id{MY_ROBOT_ID}")
-            peer_bot = bots.get("id1" if MY_ROBOT_ID == 0 else "id0")
-
-            if my_bot and peer_bot:
-                dist = math.hypot(my_bot["x"] - peer_bot["x"], my_bot["y"] - peer_bot["y"])
-                if dist < SWARM_SAFE_DIST_CM and MY_ROBOT_ID == 1:
-                    # Yield right of way
-                    cmd = {"linear": 0.0, "angular": 0.0, "mode": "YIELD"}
-                    if ser: ser.write((json.dumps(cmd) + "\n").encode())
-                    continue
-
-            if my_bot:
-                lin, ang, remaining = calculate_steering(my_bot["x"], my_bot["y"], my_bot["ang"], 35.0, 32.0)
-                cmd = {"linear": lin, "angular": ang, "dist": remaining}
-                if ser: ser.write((json.dumps(cmd) + "\n").encode())
-
-        except socket.timeout:
-            pass
-
-if __name__ == "__main__":
-    main()`
   }
 ];
 

@@ -87,11 +87,17 @@ export interface RobotTwin {
     stbyStatus: 'HARDWIRED_HIGH';
   };
   armServos: {
-    base: number; // PCA9685 CH0 (150-600)
-    shoulder: number; // PCA9685 CH1
-    elbow: number; // PCA9685 CH2
-    wrist: number; // PCA9685 CH3
-    gripper: number; // PCA9685 CH4 (85 closed - 180 open)
+    base: number;      // PCA9685 CH0: Base Yaw (0-180 deg)
+    shoulder: number;  // PCA9685 CH1: Shoulder Pitch (15-165 deg)
+    elbow: number;     // PCA9685 CH2: Elbow Pitch (10-170 deg)
+    joint4: number;    // PCA9685 CH3: Joint 4 Wrist Pitch (10-170 deg)
+    joint5: number;    // PCA9685 CH4: Joint 5 Gripper (45-180 deg)
+  };
+  mecanum?: {
+    driveMode: 'DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER' | 'DRIVE_MODE_INDEPENDENT_4W_MECANUM';
+    vx: number;
+    vy: number;
+    omega: number;
   };
   unoQStatus: {
     mpuOnline: boolean;
@@ -221,7 +227,13 @@ export interface ClawStateMachineTelemetry {
   currentPhase: string;
   currentPhaseIndex: number;
   targetRackId: string;
-  armAngleDeg: number;
+  armJoints: {
+    base: number;
+    shoulder: number;
+    elbow: number;
+    joint4: number;
+    joint5: number;
+  };
   gripperState: 'OPEN' | 'CLOSED' | 'MOVING';
   gripperDeg: number;
   objectDetected: boolean;

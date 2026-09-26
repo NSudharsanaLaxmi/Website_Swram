@@ -147,7 +147,14 @@ export class MockTelemetryClient implements ITelemetryClient {
             ],
             driveVelocities: { linearX: 0.18, angularZ: 0.0 },
             motorPins: { pwmaLeft: 4, pwmbRight: 5, dirs: [25, 26, 27, 14, 12, 13, 32, 33], stbyStatus: 'HARDWIRED_HIGH' },
-            armServos: { base: 300, shoulder: 200, elbow: 200, wrist: 300, gripper: phaseIdx >= 6 && phaseIdx <= 13 ? 85 : 180 },
+            armServos: {
+              base: 90,
+              shoulder: phaseIdx >= 4 && phaseIdx <= 13 ? 45 : 90,
+              elbow: phaseIdx >= 4 && phaseIdx <= 13 ? 135 : 90,
+              joint4: 90,
+              joint5: phaseIdx >= 6 && phaseIdx <= 13 ? 45 : 180
+            },
+            mecanum: { driveMode: 'DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER', vx: 0.18, vy: 0.0, omega: 0.0 },
             unoQStatus: { mpuOnline: true, zephyrMcuOnline: true, uartLinkBaud: 115200, uartConnected: true, cpuLoad: 16, ramUsageMb: 512 },
             esp32Status: { rtosOnline: true, wifiSignalDbm: -56, freeHeapBytes: 298450, watchdogStatus: 'OK' }
           },
@@ -182,7 +189,8 @@ export class MockTelemetryClient implements ITelemetryClient {
             ],
             driveVelocities: { linearX: 0.15, angularZ: 0.05 },
             motorPins: { pwmaLeft: 4, pwmbRight: 5, dirs: [25, 26, 27, 14, 12, 13, 32, 33], stbyStatus: 'HARDWIRED_HIGH' },
-            armServos: { base: 300, shoulder: 200, elbow: 200, wrist: 300, gripper: 180 },
+            armServos: { base: 90, shoulder: 90, elbow: 90, joint4: 90, joint5: 180 },
+            mecanum: { driveMode: 'DRIVE_MODE_TESTED_2CHANNEL_SKID_STEER', vx: 0.15, vy: 0.0, omega: 0.05 },
             unoQStatus: { mpuOnline: true, zephyrMcuOnline: true, uartLinkBaud: 115200, uartConnected: true, cpuLoad: 18, ramUsageMb: 528 },
             esp32Status: { rtosOnline: true, wifiSignalDbm: -60, freeHeapBytes: 295100, watchdogStatus: 'OK' }
           }
@@ -250,9 +258,15 @@ export class MockTelemetryClient implements ITelemetryClient {
           currentPhase: currentPhase,
           currentPhaseIndex: phaseIdx,
           targetRackId: 'RACK_1',
-          armAngleDeg: phaseIdx >= 4 && phaseIdx <= 13 ? 45 : 0,
+          armJoints: {
+            base: 90,
+            shoulder: phaseIdx >= 4 && phaseIdx <= 13 ? 45 : 90,
+            elbow: phaseIdx >= 4 && phaseIdx <= 13 ? 135 : 90,
+            joint4: 90,
+            joint5: phaseIdx >= 6 && phaseIdx <= 13 ? 45 : 180
+          },
           gripperState: phaseIdx >= 6 && phaseIdx <= 13 ? 'CLOSED' : 'OPEN',
-          gripperDeg: phaseIdx >= 6 && phaseIdx <= 13 ? 85 : 180,
+          gripperDeg: phaseIdx >= 6 && phaseIdx <= 13 ? 45 : 180,
           objectDetected: phaseIdx >= 5,
           gripConfirmed: phaseIdx >= 7 && phaseIdx <= 14
         },

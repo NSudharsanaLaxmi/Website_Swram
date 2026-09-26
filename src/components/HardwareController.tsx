@@ -222,7 +222,7 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
           )}
 
           {/* Quick Enqueue Mission Task */}
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-2 border-t border-slate-800">
             <h4 className="text-xs font-bold text-slate-300 font-mono uppercase">Enqueue Warehouse Task (3 Racks)</h4>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -288,6 +288,188 @@ export const HardwareController: React.FC<HardwareControllerProps> = ({
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+
+      {/* 5-DOF MG996R Arm Direct Pose Control & Calibration Matrix */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-white">5-DOF MG996R Robotic Arm Direct Joint Control</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Command individual PCA9685 servo angles (CH0–CH4) or execute pre-calibrated mission poses.
+            </p>
+          </div>
+          <span className="text-xs font-mono text-cyan-400 bg-cyan-950 border border-cyan-800 px-3 py-1 rounded-md">
+            TARGET: {selectedRobot.name}
+          </span>
+        </div>
+
+        {/* Named Pose Presets */}
+        <div className="space-y-2">
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">Mission Pose Presets:</span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'HOME (90,90,90,90,180)', pose: 0, desc: 'Rest Position' },
+              { label: 'APPROACH (90,65,115,90,180)', pose: 1, desc: 'Hover Over Rack' },
+              { label: 'PICK (90,45,135,90,45)', pose: 2, desc: 'Grip Payload' },
+              { label: 'LIFT (90,80,100,90,45)', pose: 3, desc: 'Elevate' },
+              { label: 'TRANSPORT (90,110,70,90,45)', pose: 4, desc: 'Compact Transit' },
+              { label: 'DROP (90,45,135,90,180)', pose: 5, desc: 'Release Payload' },
+              { label: 'RETRACT (90,100,80,90,180)', pose: 6, desc: 'Safe Fold' },
+            ].map((p) => (
+              <button
+                key={p.label}
+                onClick={() =>
+                  onSendCommand('ARM_NAMED_POSE', selectedRobotId, { pose: p.pose })
+                }
+                className="px-3 py-1.5 bg-slate-950 hover:bg-cyan-950 border border-slate-800 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 rounded-lg text-xs font-mono transition-all"
+                title={p.desc}
+              >
+                {p.label.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Individual Joint Sliders */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-2">
+          {/* CH0 Base Yaw */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">CH0 Base Yaw</span>
+              <span className="text-cyan-400 font-bold">{selectedRobot.armServos.base}°</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="180"
+              value={selectedRobot.armServos.base}
+              onChange={(e) =>
+                onSendCommand('ARM_POSE', selectedRobotId, {
+                  base: parseInt(e.target.value),
+                  shoulder: selectedRobot.armServos.shoulder,
+                  elbow: selectedRobot.armServos.elbow,
+                  joint4: selectedRobot.armServos.joint4,
+                  joint5: selectedRobot.armServos.joint5,
+                })
+              }
+              className="w-full accent-cyan-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>0°</span>
+              <span>180°</span>
+            </div>
+          </div>
+
+          {/* CH1 Shoulder */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">CH1 Shoulder</span>
+              <span className="text-cyan-400 font-bold">{selectedRobot.armServos.shoulder}°</span>
+            </div>
+            <input
+              type="range"
+              min="15"
+              max="165"
+              value={selectedRobot.armServos.shoulder}
+              onChange={(e) =>
+                onSendCommand('ARM_POSE', selectedRobotId, {
+                  base: selectedRobot.armServos.base,
+                  shoulder: parseInt(e.target.value),
+                  elbow: selectedRobot.armServos.elbow,
+                  joint4: selectedRobot.armServos.joint4,
+                  joint5: selectedRobot.armServos.joint5,
+                })
+              }
+              className="w-full accent-cyan-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>15°</span>
+              <span>165°</span>
+            </div>
+          </div>
+
+          {/* CH2 Elbow */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">CH2 Elbow</span>
+              <span className="text-cyan-400 font-bold">{selectedRobot.armServos.elbow}°</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="170"
+              value={selectedRobot.armServos.elbow}
+              onChange={(e) =>
+                onSendCommand('ARM_POSE', selectedRobotId, {
+                  base: selectedRobot.armServos.base,
+                  shoulder: selectedRobot.armServos.shoulder,
+                  elbow: parseInt(e.target.value),
+                  joint4: selectedRobot.armServos.joint4,
+                  joint5: selectedRobot.armServos.joint5,
+                })
+              }
+              className="w-full accent-cyan-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>10°</span>
+              <span>170°</span>
+            </div>
+          </div>
+
+          {/* CH3 Joint 4 */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">CH3 Joint 4</span>
+              <span className="text-cyan-400 font-bold">{selectedRobot.armServos.joint4}°</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="170"
+              value={selectedRobot.armServos.joint4}
+              onChange={(e) =>
+                onSendCommand('ARM_POSE', selectedRobotId, {
+                  base: selectedRobot.armServos.base,
+                  shoulder: selectedRobot.armServos.shoulder,
+                  elbow: selectedRobot.armServos.elbow,
+                  joint4: parseInt(e.target.value),
+                  joint5: selectedRobot.armServos.joint5,
+                })
+              }
+              className="w-full accent-cyan-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>10°</span>
+              <span>170°</span>
+            </div>
+          </div>
+
+          {/* CH4 Joint 5 Gripper */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">CH4 Gripper</span>
+              <span className="text-amber-300 font-bold">{selectedRobot.armServos.joint5}°</span>
+            </div>
+            <input
+              type="range"
+              min="45"
+              max="180"
+              value={selectedRobot.armServos.joint5}
+              onChange={(e) =>
+                onSendCommand('ARM_POSE', selectedRobotId, {
+                  base: selectedRobot.armServos.base,
+                  shoulder: selectedRobot.armServos.shoulder,
+                  elbow: selectedRobot.armServos.elbow,
+                  joint4: selectedRobot.armServos.joint4,
+                  joint5: parseInt(e.target.value),
+                })
+              }
+              className="w-full accent-amber-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500">
+              <span>45° (Grip)</span>
+              <span>180° (Open)</span>
+            </div>
+          </div>
+        </div>
+      </div>
